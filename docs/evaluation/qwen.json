@@ -1,0 +1,174 @@
+{
+  "generated_from": "fixtures/synthetic_cases.jsonl",
+  "dataset_cases": 30,
+  "claim_boundary": "Synthetic fixtures only; not a production accuracy claim.",
+  "models": [
+    {
+      "model": "qwen/qwen3.5-9b",
+      "cases": 30,
+      "leak_free_cases": 25,
+      "cloud_payloads_approved": 25,
+      "control_secret_payload_leaks": 0,
+      "entity_recall": 0.6667,
+      "false_positive_values": 5,
+      "schema_failures": 4,
+      "gate_failures": 0,
+      "fixture_release_blocks": 1,
+      "roundtrip_cases": 26,
+      "latency_median_seconds": 2.556,
+      "latency_max_seconds": 6.182,
+      "case_results": [
+        {
+          "id": "ru-01",
+          "status": "blocked:DetectionError",
+          "seconds": 6.182
+        },
+        {
+          "id": "ru-02",
+          "status": "blocked:DetectionError",
+          "seconds": 3.067
+        },
+        {
+          "id": "ru-03",
+          "status": "passed",
+          "seconds": 2.917
+        },
+        {
+          "id": "ru-04",
+          "status": "passed",
+          "seconds": 2.479
+        },
+        {
+          "id": "ru-05",
+          "status": "passed",
+          "seconds": 2.153
+        },
+        {
+          "id": "ru-06",
+          "status": "passed",
+          "seconds": 2.16
+        },
+        {
+          "id": "ru-07",
+          "status": "passed",
+          "seconds": 2.554
+        },
+        {
+          "id": "ru-08",
+          "status": "passed",
+          "seconds": 2.394
+        },
+        {
+          "id": "ru-09",
+          "status": "passed",
+          "seconds": 2.558
+        },
+        {
+          "id": "ru-10",
+          "status": "blocked:DetectionError",
+          "seconds": 3.792
+        },
+        {
+          "id": "ru-11",
+          "status": "passed",
+          "seconds": 3.334
+        },
+        {
+          "id": "ru-12",
+          "status": "passed",
+          "seconds": 4.11
+        },
+        {
+          "id": "ru-13",
+          "status": "blocked:DetectionError",
+          "seconds": 2.798
+        },
+        {
+          "id": "ru-14",
+          "status": "passed",
+          "seconds": 2.29
+        },
+        {
+          "id": "ru-15",
+          "status": "passed",
+          "seconds": 4.03
+        },
+        {
+          "id": "en-01",
+          "status": "passed",
+          "seconds": 2.437
+        },
+        {
+          "id": "en-02",
+          "status": "passed",
+          "seconds": 2.855
+        },
+        {
+          "id": "en-03",
+          "status": "blocked:fixture_release_gate",
+          "seconds": 2.015
+        },
+        {
+          "id": "en-04",
+          "status": "passed",
+          "seconds": 1.951
+        },
+        {
+          "id": "en-05",
+          "status": "passed",
+          "seconds": 2.155
+        },
+        {
+          "id": "en-06",
+          "status": "passed",
+          "seconds": 2.191
+        },
+        {
+          "id": "en-07",
+          "status": "passed",
+          "seconds": 2.466
+        },
+        {
+          "id": "en-08",
+          "status": "passed",
+          "seconds": 2.34
+        },
+        {
+          "id": "en-09",
+          "status": "passed",
+          "seconds": 2.315
+        },
+        {
+          "id": "en-10",
+          "status": "passed",
+          "seconds": 3.468
+        },
+        {
+          "id": "en-11",
+          "status": "passed",
+          "seconds": 2.845
+        },
+        {
+          "id": "en-12",
+          "status": "passed",
+          "seconds": 3.092
+        },
+        {
+          "id": "en-13",
+          "status": "passed",
+          "seconds": 2.598
+        },
+        {
+          "id": "en-14",
+          "status": "passed",
+          "seconds": 1.325
+        },
+        {
+          "id": "en-15",
+          "status": "passed",
+          "seconds": 3.813
+        }
+      ]
+    }
+  ]
+}

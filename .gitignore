@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.env
+uploads/
+mappings/
+*.log
+.DS_Store
+.playwright-cli/
+output/
+build/
+dist/
+work/

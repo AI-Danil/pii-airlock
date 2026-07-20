@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PII Airlock</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main>
+    <header>
+      <span class="eyebrow">LOCAL → CLOUD → LOCAL</span>
+      <h1>PII Airlock</h1>
+      <p>A local privacy boundary for cloud LLM requests. Raw values stay on this machine.</p>
+      <div id="health" class="health">Checking local stack…</div>
+    </header>
+
+    <section class="controls card">
+      <label>Local detector
+        <select id="model">
+          <option value="qwen/qwen3.5-9b">Qwen 3.5 9B</option>
+          <option value="google/gemma-4-e4b">Gemma 4 E4B</option>
+        </select>
+      </label>
+      <label>Task
+        <input id="task" value="Write a concise, polite reply while preserving every PII token exactly.">
+      </label>
+      <label class="file">Load TXT / MD / DOCX / PDF
+        <input id="file" type="file" accept=".txt,.md,.docx,.pdf">
+      </label>
+    </section>
+
+    <section class="grid">
+      <article class="card"><span class="step">01 · LOCAL INPUT</span><h2>Original document</h2><textarea id="source">Contact Elena Morozova at elena.morozova@example.test or +7 999 123-45-67. Contract CN-2049 belongs to Northstar Lab.</textarea></article>
+      <article class="card"><span class="step">02 · LOCAL DETECTION</span><h2>Detected types</h2><div id="entities" class="output muted">Nothing analyzed yet.</div></article>
+      <article class="card"><span class="step">03 · CLOUD PAYLOAD</span><h2>Pseudonymized text</h2><pre id="payload" class="output muted">Nothing leaves this page before the local gate passes.</pre></article>
+      <article class="card"><span class="step">04 · LOCAL RESTORE</span><h2>Final answer</h2><div id="answer" class="output muted">Dry-run works without an OpenAI key.</div></article>
+    </section>
+
+    <footer class="actions">
+      <div id="status" class="status idle">NOT ANALYZED</div>
+      <button id="analyze">Analyze locally</button>
+      <button id="complete" class="secondary" disabled>Send sanitized payload</button>
+      <button id="destroy" class="ghost" disabled>Destroy mapping</button>
+    </footer>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

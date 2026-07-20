@@ -1,0 +1,30 @@
+{"id":"ru-01","language":"ru","text":"Свяжитесь с Еленой Морозовой по адресу elena.morozova@example.test.","entities":[{"value":"Елена Морозова","type":"PERSON"},{"value":"elena.morozova@example.test","type":"EMAIL"}]}
+{"id":"ru-02","language":"ru","text":"Телефон Артёма Волкова: +7 999 111-22-33.","entities":[{"value":"Артём Волков","type":"PERSON"},{"value":"+7 999 111-22-33","type":"PHONE"}]}
+{"id":"ru-03","language":"ru","text":"Договор CN-2049 подписан с ООО «Северная Звезда».","entities":[{"value":"CN-2049","type":"CONTRACT_ID"},{"value":"ООО «Северная Звезда»","type":"ORG"}]}
+{"id":"ru-04","language":"ru","text":"Адрес доставки: Москва, ул. Тестовая, д. 17, кв. 4.","entities":[{"value":"Москва, ул. Тестовая, д. 17, кв. 4","type":"ADDRESS"}]}
+{"id":"ru-05","language":"ru","text":"Тестовый паспорт клиента: 4510 123456.","entities":[{"value":"4510 123456","type":"PASSPORT"}]}
+{"id":"ru-06","language":"ru","text":"ИНН тестовой организации 7701234567.","entities":[{"value":"7701234567","type":"TAX_ID"}]}
+{"id":"ru-07","language":"ru","text":"Для теста оплаты используется карта 4111 1111 1111 1111.","entities":[{"value":"4111 1111 1111 1111","type":"CARD"}]}
+{"id":"ru-08","language":"ru","text":"Не публиковать тестовый ключ sk-testOnlyKey1234567890ABCD.","entities":[{"value":"sk-testOnlyKey1234567890ABCD","type":"API_KEY"}]}
+{"id":"ru-09","language":"ru","text":"Мария Соколова работает в компании «Лаборатория Горизонт».","entities":[{"value":"Мария Соколова","type":"PERSON"},{"value":"Лаборатория Горизонт","type":"ORG"}]}
+{"id":"ru-10","language":"ru","text":"Ответ направить Илье Орлову: ilya.orlov@example.test, +7 (999) 222-33-44.","entities":[{"value":"Илья Орлов","type":"PERSON"},{"value":"ilya.orlov@example.test","type":"EMAIL"},{"value":"+7 (999) 222-33-44","type":"PHONE"}]}
+{"id":"ru-11","language":"ru","text":"Акт ACT-RU-778 относится к адресу Казань, проспект Учебный, 5.","entities":[{"value":"ACT-RU-778","type":"CONTRACT_ID"},{"value":"Казань, проспект Учебный, 5","type":"ADDRESS"}]}
+{"id":"ru-12","language":"ru","text":"ООО «Тестовый Контур», ИНН 780123456789, контакт Олег Лебедев.","entities":[{"value":"ООО «Тестовый Контур»","type":"ORG"},{"value":"780123456789","type":"TAX_ID"},{"value":"Олег Лебедев","type":"PERSON"}]}
+{"id":"ru-13","language":"ru","text":"Учетная запись nina.krylova@example.test принадлежит Нине Крыловой.","entities":[{"value":"nina.krylova@example.test","type":"EMAIL"},{"value":"Нина Крылова","type":"PERSON"}]}
+{"id":"ru-14","language":"ru","text":"Код доступа TEMP-SECRET-ALPHA-7788 нельзя включать в отчёт.","entities":[{"value":"TEMP-SECRET-ALPHA-7788","type":"OTHER_SECRET"}]}
+{"id":"ru-15","language":"ru","text":"Сергей Фомин, договор OFFER-551, телефон +7 999 333 44 55.","entities":[{"value":"Сергей Фомин","type":"PERSON"},{"value":"OFFER-551","type":"CONTRACT_ID"},{"value":"+7 999 333 44 55","type":"PHONE"}]}
+{"id":"en-01","language":"en","text":"Contact Alice Carter at alice.carter@example.test.","entities":[{"value":"Alice Carter","type":"PERSON"},{"value":"alice.carter@example.test","type":"EMAIL"}]}
+{"id":"en-02","language":"en","text":"Noah Bennett can be reached at +1 (202) 555-0147.","entities":[{"value":"Noah Bennett","type":"PERSON"},{"value":"+1 (202) 555-0147","type":"PHONE"}]}
+{"id":"en-03","language":"en","text":"Agreement US-DEMO-204 belongs to Northstar Research LLC.","entities":[{"value":"US-DEMO-204","type":"CONTRACT_ID"},{"value":"Northstar Research LLC","type":"ORG"}]}
+{"id":"en-04","language":"en","text":"Ship the sample to 17 Example Avenue, Testville.","entities":[{"value":"17 Example Avenue, Testville","type":"ADDRESS"}]}
+{"id":"en-05","language":"en","text":"The fictional passport identifier is 3402 654321.","entities":[{"value":"3402 654321","type":"PASSPORT"}]}
+{"id":"en-06","language":"en","text":"Demo tax identifier: 1234567890.","entities":[{"value":"1234567890","type":"TAX_ID"}]}
+{"id":"en-07","language":"en","text":"Use test card 5555 5555 5555 4444 in the sandbox only.","entities":[{"value":"5555 5555 5555 4444","type":"CARD"}]}
+{"id":"en-08","language":"en","text":"The fake credential ghp_1234567890ABCDEFGHIJ must be removed.","entities":[{"value":"ghp_1234567890ABCDEFGHIJ","type":"API_KEY"}]}
+{"id":"en-09","language":"en","text":"Priya Shah represents Example Harbor Ltd.","entities":[{"value":"Priya Shah","type":"PERSON"},{"value":"Example Harbor Ltd","type":"ORG"}]}
+{"id":"en-10","language":"en","text":"Email Liam Foster at liam.foster@example.test or call +1 202 555 0199.","entities":[{"value":"Liam Foster","type":"PERSON"},{"value":"liam.foster@example.test","type":"EMAIL"},{"value":"+1 202 555 0199","type":"PHONE"}]}
+{"id":"en-11","language":"en","text":"Invoice INV-DEMO-881 references 42 Sandbox Road, Mock City.","entities":[{"value":"INV-DEMO-881","type":"CONTRACT_ID"},{"value":"42 Sandbox Road, Mock City","type":"ADDRESS"}]}
+{"id":"en-12","language":"en","text":"Example Circuit Inc. assigned case CASE-404 to Olivia Reed.","entities":[{"value":"Example Circuit Inc","type":"ORG"},{"value":"CASE-404","type":"CONTRACT_ID"},{"value":"Olivia Reed","type":"PERSON"}]}
+{"id":"en-13","language":"en","text":"Account ethan.gray@example.test belongs to Ethan Gray.","entities":[{"value":"ethan.gray@example.test","type":"EMAIL"},{"value":"Ethan Gray","type":"PERSON"}]}
+{"id":"en-14","language":"en","text":"Remove the temporary phrase DEMO-ACCESS-OMEGA-9911 before sharing.","entities":[{"value":"DEMO-ACCESS-OMEGA-9911","type":"OTHER_SECRET"}]}
+{"id":"en-15","language":"en","text":"Maya Brooks signed proposal PROP-730; phone +1 202 555 0175.","entities":[{"value":"Maya Brooks","type":"PERSON"},{"value":"PROP-730","type":"CONTRACT_ID"},{"value":"+1 202 555 0175","type":"PHONE"}]}
