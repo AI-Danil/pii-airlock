@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from docx import Document
@@ -52,3 +53,22 @@ def test_empty_damaged_and_oversized_inputs() -> None:
         extract_bytes(b"not a zip", ".docx")
     with pytest.raises(AirlockError, match="20,000"):
         extract_bytes(("x" * 20_001).encode(), ".txt")
+
+
+def test_docx_archive_expansion_is_bounded() -> None:
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "content types")
+        archive.writestr("word/document.xml", "x" * (25 * 1024 * 1024 + 1))
+    with pytest.raises(AirlockError, match="expanded size"):
+        extract_bytes(buffer.getvalue(), ".docx")
+
+
+def test_pdf_page_count_is_bounded() -> None:
+    writer = PdfWriter()
+    for _ in range(101):
+        writer.add_blank_page(width=200, height=200)
+    buffer = BytesIO()
+    writer.write(buffer)
+    with pytest.raises(AirlockError, match="100-page"):
+        extract_bytes(buffer.getvalue(), ".pdf")

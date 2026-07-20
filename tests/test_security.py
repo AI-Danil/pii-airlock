@@ -43,15 +43,41 @@ def test_document_prompt_injection_remains_delimited_untrusted_data(monkeypatch)
     assert captured["response_format"]["type"] == "json_schema"
 
 
+def test_invalid_structured_output_has_a_machine_readable_failure_code(monkeypatch) -> None:
+    monkeypatch.setattr(detectors, "_post_json", lambda *_args: {"choices": [{"message": {"content": "no"}}]})
+    with pytest.raises(DetectionError) as caught:
+        LMStudioDetector().detect("Alice", model="qwen/qwen3.5-9b")
+    assert caught.value.code == "invalid_structured_output"
+
+
 def test_lm_studio_timeout_is_fail_closed(monkeypatch) -> None:
     monkeypatch.setattr(detectors.request, "urlopen", lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()))
     with pytest.raises(DetectionError, match="timed out"):
         detectors._post_json("http://127.0.0.1:1234/v1/chat/completions", {}, 0.01)
 
 
+def test_lm_studio_response_size_is_bounded(monkeypatch) -> None:
+    class OversizedResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size):
+            return b"x" * (detectors.MAX_LM_STUDIO_RESPONSE_BYTES + 1)
+
+    monkeypatch.setattr(detectors.request, "urlopen", lambda *_args, **_kwargs: OversizedResponse())
+    with pytest.raises(DetectionError, match="2 MB"):
+        detectors._post_json("http://127.0.0.1:1234/v1/chat/completions", {}, 0.01)
+
+
 def test_audit_log_does_not_include_raw_source(caplog) -> None:
     raw = "alice@example.test"
-    client = TestClient(create_app(AirlockService(detector=SecretDetector(), cloud_client=None)))
+    client = TestClient(
+        create_app(AirlockService(detector=SecretDetector(), cloud_client=None)),
+        client=("127.0.0.1", 50_000),
+    )
     with caplog.at_level(logging.INFO, logger="pii_airlock.audit"):
         response = client.post(
             "/api/v1/operations",

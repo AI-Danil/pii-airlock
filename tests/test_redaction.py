@@ -31,6 +31,11 @@ def test_rejects_reserved_token_in_source() -> None:
         redact_fields({"text": "__PII_A1B2C3D4_PERSON_0001__"}, [], nonce="A1B2C3D4")
 
 
+def test_rejects_malformed_reserved_prefix_in_source() -> None:
+    with pytest.raises(DetectionError):
+        redact_fields({"text": "Do not alter __pii_incomplete"}, [], nonce="A1B2C3D4")
+
+
 def test_unknown_cloud_token_is_blocked() -> None:
     with pytest.raises(UnknownTokenError):
         restore_text("Forged __PII_A1B2C3D4_PERSON_9999__", {"__PII_A1B2C3D4_PERSON_0001__": "Elena"})
@@ -40,3 +45,17 @@ def test_altered_cloud_token_is_blocked() -> None:
     mapping = {"__PII_A1B2C3D4_PERSON_0001__": "Elena"}
     with pytest.raises(UnknownTokenError):
         restore_text("Altered __PII_A1B2C3D4_PERSON_0001_CHANGED__", mapping)
+
+
+@pytest.mark.parametrize(
+    "forged",
+    ["__PII_", "__pii_A1B2C3D4_PERSON_0001__", "__PII_A1B2C3D4_PERSON_0001"],
+)
+def test_any_reserved_prefix_left_by_cloud_is_blocked(forged: str) -> None:
+    with pytest.raises(UnknownTokenError):
+        restore_text(f"Altered {forged}", {"__PII_A1B2C3D4_PERSON_0001__": "Elena"})
+
+
+def test_generated_nonce_has_128_bits() -> None:
+    result = redact_fields({"text": "Elena"}, [Entity("Elena", EntityType.PERSON)])
+    assert len(result.nonce) == 32

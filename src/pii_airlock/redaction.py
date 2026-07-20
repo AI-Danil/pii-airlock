@@ -5,21 +5,20 @@ import secrets
 
 from .models import DetectionError, Entity, RedactionResult
 
-
-TOKEN_PATTERN = re.compile(r"__PII_[A-F0-9]{8}_[A-Z_]+_\d{4}__")
-TOKEN_LIKE_PATTERN = re.compile(r"__PII_[A-Za-z0-9_]{1,160}__")
+RESERVED_TOKEN_PREFIX = "__PII_"
+TOKEN_PATTERN = re.compile(r"__PII_[A-F0-9]{8,32}_[A-Z_]+_\d{4}__")
 
 
 def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str | None = None) -> RedactionResult:
     if not fields or not any(value.strip() for value in fields.values()):
-        raise DetectionError("At least one non-empty text field is required.")
+        raise DetectionError("At least one non-empty text field is required.", code="empty_input")
     for text in fields.values():
-        if TOKEN_PATTERN.search(text):
-            raise DetectionError("Input already contains a reserved PII token.")
+        if RESERVED_TOKEN_PREFIX.casefold() in text.casefold():
+            raise DetectionError("Input already contains a reserved PII token.", code="reserved_token_in_input")
 
-    safe_nonce = (nonce or secrets.token_hex(4)).upper()
-    if not re.fullmatch(r"[A-F0-9]{8}", safe_nonce):
-        raise ValueError("Nonce must be eight uppercase hexadecimal characters.")
+    safe_nonce = (nonce or secrets.token_hex(16)).upper()
+    if not re.fullmatch(r"[A-F0-9]{8,32}", safe_nonce):
+        raise ValueError("Nonce must be 8 to 32 uppercase hexadecimal characters.")
 
     accepted: list[Entity] = []
     seen_values: set[str] = set()
@@ -28,7 +27,9 @@ def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str 
         if not entity.value or entity.value in seen_values:
             continue
         if entity.value not in corpus:
-            raise DetectionError(f"Entity is not an exact input substring: {entity.type.value}")
+            raise DetectionError(
+                f"Entity is not an exact input substring: {entity.type.value}", code="non_exact_substring"
+            )
         accepted.append(entity)
         seen_values.add(entity.value)
 
@@ -53,8 +54,11 @@ def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str 
 def restore_text(text: str, mapping: dict[str, str]) -> str:
     exact_tokens = set(TOKEN_PATTERN.findall(text))
     unknown = sorted(token for token in exact_tokens if token not in mapping)
-    malformed = [fragment for fragment in TOKEN_LIKE_PATTERN.findall(text) if fragment not in exact_tokens]
-    if unknown or malformed:
+    without_known_tokens = text
+    for token in mapping:
+        without_known_tokens = without_known_tokens.replace(token, "")
+    reserved_fragment_remains = RESERVED_TOKEN_PREFIX.casefold() in without_known_tokens.casefold()
+    if unknown or reserved_fragment_remains:
         from .models import UnknownTokenError
 
         raise UnknownTokenError("Cloud response contains unknown, altered or forged PII token(s).")

@@ -1,0 +1,345 @@
+{
+  "generated_from": "fixtures/synthetic_cases.jsonl",
+  "dataset_cases": 30,
+  "scope": "Synthetic fixtures only. The fixture oracle is unavailable for arbitrary documents.",
+  "models": [
+    {
+      "model": "qwen/qwen3.5-9b",
+      "cases": 30,
+      "runtime_gate_passes": 23,
+      "fixture_oracle_passes": 23,
+      "known_control_leak_cases_after_runtime_gate": 0,
+      "known_control_values_in_oracle_passes": 0,
+      "entity_recall": 0.7037,
+      "extra_replacement_values": 5,
+      "detection_failures": 4,
+      "detection_failures_by_code": {
+        "non_exact_substring": 4
+      },
+      "runtime_gate_blocks": 3,
+      "deterministic_restoration_checks": 23,
+      "latency_median_seconds": 1.948,
+      "latency_max_seconds": 4.152,
+      "case_results": [
+        {
+          "id": "ru-01",
+          "status": "blocked:non_exact_substring",
+          "seconds": 4.152
+        },
+        {
+          "id": "ru-02",
+          "status": "blocked:non_exact_substring",
+          "seconds": 2.334
+        },
+        {
+          "id": "ru-03",
+          "status": "blocked:GateBlocked",
+          "seconds": 2.246
+        },
+        {
+          "id": "ru-04",
+          "status": "passed",
+          "seconds": 1.948
+        },
+        {
+          "id": "ru-05",
+          "status": "passed",
+          "seconds": 1.72
+        },
+        {
+          "id": "ru-06",
+          "status": "passed",
+          "seconds": 1.728
+        },
+        {
+          "id": "ru-07",
+          "status": "passed",
+          "seconds": 1.947
+        },
+        {
+          "id": "ru-08",
+          "status": "passed",
+          "seconds": 1.899
+        },
+        {
+          "id": "ru-09",
+          "status": "passed",
+          "seconds": 2.039
+        },
+        {
+          "id": "ru-10",
+          "status": "blocked:non_exact_substring",
+          "seconds": 2.867
+        },
+        {
+          "id": "ru-11",
+          "status": "passed",
+          "seconds": 2.418
+        },
+        {
+          "id": "ru-12",
+          "status": "passed",
+          "seconds": 2.974
+        },
+        {
+          "id": "ru-13",
+          "status": "blocked:non_exact_substring",
+          "seconds": 2.066
+        },
+        {
+          "id": "ru-14",
+          "status": "passed",
+          "seconds": 1.694
+        },
+        {
+          "id": "ru-15",
+          "status": "passed",
+          "seconds": 2.929
+        },
+        {
+          "id": "en-01",
+          "status": "passed",
+          "seconds": 1.885
+        },
+        {
+          "id": "en-02",
+          "status": "passed",
+          "seconds": 2.297
+        },
+        {
+          "id": "en-03",
+          "status": "blocked:GateBlocked",
+          "seconds": 1.612
+        },
+        {
+          "id": "en-04",
+          "status": "passed",
+          "seconds": 1.55
+        },
+        {
+          "id": "en-05",
+          "status": "passed",
+          "seconds": 1.708
+        },
+        {
+          "id": "en-06",
+          "status": "passed",
+          "seconds": 1.727
+        },
+        {
+          "id": "en-07",
+          "status": "passed",
+          "seconds": 1.947
+        },
+        {
+          "id": "en-08",
+          "status": "passed",
+          "seconds": 1.856
+        },
+        {
+          "id": "en-09",
+          "status": "passed",
+          "seconds": 1.851
+        },
+        {
+          "id": "en-10",
+          "status": "passed",
+          "seconds": 2.776
+        },
+        {
+          "id": "en-11",
+          "status": "blocked:GateBlocked",
+          "seconds": 2.228
+        },
+        {
+          "id": "en-12",
+          "status": "passed",
+          "seconds": 2.527
+        },
+        {
+          "id": "en-13",
+          "status": "passed",
+          "seconds": 1.936
+        },
+        {
+          "id": "en-14",
+          "status": "passed",
+          "seconds": 1.027
+        },
+        {
+          "id": "en-15",
+          "status": "passed",
+          "seconds": 2.821
+        }
+      ]
+    },
+    {
+      "model": "google/gemma-4-e4b",
+      "cases": 30,
+      "runtime_gate_passes": 26,
+      "fixture_oracle_passes": 22,
+      "known_control_leak_cases_after_runtime_gate": 4,
+      "known_control_values_in_oracle_passes": 0,
+      "entity_recall": 0.7593,
+      "extra_replacement_values": 4,
+      "detection_failures": 0,
+      "detection_failures_by_code": {},
+      "runtime_gate_blocks": 4,
+      "deterministic_restoration_checks": 26,
+      "latency_median_seconds": 1.014,
+      "latency_max_seconds": 15.628,
+      "case_results": [
+        {
+          "id": "ru-01",
+          "status": "passed",
+          "seconds": 15.628
+        },
+        {
+          "id": "ru-02",
+          "status": "passed",
+          "seconds": 1.412
+        },
+        {
+          "id": "ru-03",
+          "status": "blocked:GateBlocked",
+          "seconds": 0.364
+        },
+        {
+          "id": "ru-04",
+          "status": "passed",
+          "seconds": 1.301
+        },
+        {
+          "id": "ru-05",
+          "status": "passed",
+          "seconds": 1.118
+        },
+        {
+          "id": "ru-06",
+          "status": "passed",
+          "seconds": 0.371
+        },
+        {
+          "id": "ru-07",
+          "status": "passed",
+          "seconds": 0.473
+        },
+        {
+          "id": "ru-08",
+          "status": "passed",
+          "seconds": 0.346
+        },
+        {
+          "id": "ru-09",
+          "status": "passed",
+          "seconds": 1.492
+        },
+        {
+          "id": "ru-10",
+          "status": "passed",
+          "seconds": 2.014
+        },
+        {
+          "id": "ru-11",
+          "status": "blocked:GateBlocked",
+          "seconds": 1.258
+        },
+        {
+          "id": "ru-12",
+          "status": "passed",
+          "seconds": 2.527
+        },
+        {
+          "id": "ru-13",
+          "status": "passed",
+          "seconds": 1.005
+        },
+        {
+          "id": "ru-14",
+          "status": "passed",
+          "seconds": 0.359
+        },
+        {
+          "id": "ru-15",
+          "status": "passed",
+          "seconds": 2.486
+        },
+        {
+          "id": "en-01",
+          "status": "blocked:fixture_oracle",
+          "seconds": 1.022
+        },
+        {
+          "id": "en-02",
+          "status": "blocked:fixture_oracle",
+          "seconds": 0.384
+        },
+        {
+          "id": "en-03",
+          "status": "blocked:GateBlocked",
+          "seconds": 0.869
+        },
+        {
+          "id": "en-04",
+          "status": "passed",
+          "seconds": 0.955
+        },
+        {
+          "id": "en-05",
+          "status": "passed",
+          "seconds": 1.125
+        },
+        {
+          "id": "en-06",
+          "status": "passed",
+          "seconds": 0.36
+        },
+        {
+          "id": "en-07",
+          "status": "passed",
+          "seconds": 0.457
+        },
+        {
+          "id": "en-08",
+          "status": "passed",
+          "seconds": 0.336
+        },
+        {
+          "id": "en-09",
+          "status": "passed",
+          "seconds": 1.279
+        },
+        {
+          "id": "en-10",
+          "status": "passed",
+          "seconds": 2.386
+        },
+        {
+          "id": "en-11",
+          "status": "blocked:GateBlocked",
+          "seconds": 0.98
+        },
+        {
+          "id": "en-12",
+          "status": "blocked:fixture_oracle",
+          "seconds": 0.916
+        },
+        {
+          "id": "en-13",
+          "status": "passed",
+          "seconds": 1.425
+        },
+        {
+          "id": "en-14",
+          "status": "passed",
+          "seconds": 0.356
+        },
+        {
+          "id": "en-15",
+          "status": "blocked:fixture_oracle",
+          "seconds": 1.832
+        }
+      ]
+    }
+  ]
+}

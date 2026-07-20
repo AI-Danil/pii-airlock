@@ -1,25 +1,31 @@
 # Security policy
 
-## Scope and disclosure
+Do not attach real personal data, credentials, or customer documents to a public issue. Use GitHub's private security-advisory flow to report a vulnerability in this repository.
 
-PII Airlock is a defensive demonstrator. Do not submit real personal data, credentials, or customer documents in public issues. Report a vulnerability privately through GitHub's security-advisory flow for this repository.
+## Implemented controls
 
-## Security properties in V1
+- The packaged server binds to loopback. The ASGI application also rejects clients whose source address is not loopback.
+- LM Studio accepts only loopback URLs. A cloud base URL must use HTTPS, except for an explicit loopback test endpoint.
+- A mapping exists only in process memory. Its maximum lifetime is ten minutes; completion, error, expiry, deletion, or a blocked operation removes it.
+- Generated tokens use a 128-bit random nonce. Any `__PII_` fragment already present in source text is rejected.
+- Proposed values must be exact input substrings. Replacements are applied longest first.
+- A rules-based scan checks the outbound fields. No detected entity and any recognized residual value cause a block.
+- A provider response may contain only exact tokens from the current operation. Unknown, incomplete, case-changed, or otherwise altered PII-token fragments block restoration.
+- LM Studio and provider responses are capped at 2 MB. Uploaded files are capped at 5 MB; DOCX expansion at 25 MB; PDF pages at 100; extracted text at 20,000 characters.
+- Application audit logs contain operation ID, model ID, entity counts, status, and error class. The logging calls do not include source text, mappings, prompts, or provider answers.
+- The OpenAI client sends `store: false`. CI uses stubs and no model or provider credentials.
 
-- The HTTP server and LM Studio client accept loopback hosts only.
-- The application stores mappings in process memory with a 10-minute TTL and deletes them after completion or dry-run.
-- Audit logs contain operation IDs, selected model, entity type counts, status, and error class—not source text, mapping values, prompts, or cloud answers.
-- Cloud is off until `OPENAI_API_KEY` is supplied. Requests use the Responses API and `store: false`.
-- Exact-substring validation rejects model inventions. Residual rules scan email, phone, supported card/key formats, and contextual identifiers. Cloud output may restore only current-operation tokens.
-- CI uses offline stubs and no secrets.
+## Limits
 
-## Known limitations
+The detector is incomplete. In the published 30-case run, the runtime gate caught the known Qwen controls but passed four Gemma payloads that still contained a known labelled control. A fixture-only oracle stopped those four cases, but that oracle is unavailable for arbitrary documents.
 
-- A local model can miss semantic PII. Rules are not a universal DLP engine.
-- `store: false` is a request parameter, not a replacement for reviewing provider policy.
-- Process memory can be inspected by a sufficiently privileged local attacker.
-- Clipboard history, OS swap, terminal output deliberately requested by the user, LM Studio internals, and upstream provider infrastructure are outside this repository's control.
-- V1 has no authentication because it is loopback-only. Do not expose it through a reverse proxy or LAN binding.
-- OCR and image-based documents are rejected, not sanitized.
+The rules are not a general DLP system. They cover selected formats and can miss names, addresses, organizations, unlabelled identifiers, novel credentials, and values split by parsing. A local model may also follow an instruction embedded in a document. Exact-substring validation prevents fabricated replacements; it does not prevent omissions.
 
-For high-risk use, keep dry-run enabled, review the exact payload, and use a dedicated machine/account boundary.
+Other limits:
+
+- `store: false` is a request option, not a statement about every provider or account policy.
+- A privileged local process can inspect memory, swap, clipboard history, terminal output, or LM Studio state.
+- There is no authentication or multi-user isolation. Do not place the service behind a reverse proxy or expose it to a LAN.
+- OCR, images, audio, malware scanning, encrypted persistence, regulatory certification, and protection from a compromised host are outside V1.
+
+For real high-risk material, keep the provider disabled and use independently reviewed controls. `READY_FOR_REVIEW` must not be treated as an authorization decision.

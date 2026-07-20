@@ -1,6 +1,6 @@
 # Gosha integration
 
-PII Airlock stays an independent service. Gosha does not copy its detection/redaction logic; a thin loopback client calls `POST /api/v1/complete` with both `instructions` and `input_text`, allowing one operation-scoped mapping to cover both fields.
+PII Airlock runs as a separate loopback service. Gosha's adapter sends `instructions` and `input_text` to `POST /api/v1/complete`; both fields share one operation mapping. Detection and redaction code are not copied into Gosha.
 
 ```dotenv
 GOSHA_PRIVACY_GATEWAY_ENABLED=false
@@ -8,6 +8,6 @@ GOSHA_PRIVACY_GATEWAY_URL=http://127.0.0.1:8787
 GOSHA_PRIVACY_GATEWAY_TIMEOUT=180
 ```
 
-The adapter validates that the URL is loopback-only. When enabled, a gateway error raises the existing Gosha LLM error and never falls through to direct OpenAI. The existing local fallback remains the caller's responsibility. A dry-run response is not treated as a completed generation because it has no restored cloud answer.
+When the feature flag is on, a gateway error does not fall through to a direct OpenAI request. A dry-run response is also rejected as a generation result because it contains no restored provider answer. With the flag off, the existing provider path is unchanged.
 
-The initial integration was deliberately left local and disabled. Its dedicated tests cover restored output, no direct OpenAI call through the enabled gateway, fail-closed behavior, and unchanged direct behavior when the flag is off.
+The adapter and its tests remain local to the private Gosha checkout. The flag remains off because the published benchmark found known controls that passed the runtime gate. Before enabling it for unattended use, Gosha needs an explicit policy for what `READY_FOR_REVIEW` means in an automated route; the current stateless endpoint does not provide human review.

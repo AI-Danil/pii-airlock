@@ -12,7 +12,6 @@ from .documents import extract_path
 from .models import AirlockError
 from .service import AirlockService
 
-
 ALIASES = {"qwen": SUPPORTED_MODELS[0], "gemma": SUPPORTED_MODELS[1]}
 
 
