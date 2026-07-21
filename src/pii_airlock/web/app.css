@@ -77,7 +77,7 @@ header p {
 
 .controls {
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-columns: 1fr 1.2fr 2fr 1fr;
   gap: 16px;
   padding: 16px;
   margin-bottom: 16px;
@@ -106,6 +106,12 @@ textarea {
 
 .file input {
   padding: 8px;
+}
+
+.file small {
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
 }
 
 .grid {
@@ -272,6 +278,10 @@ button.ghost {
   border: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
+}
+
+button.ghost.receipt {
+  margin-left: 0;
 }
 
 button:focus-visible,

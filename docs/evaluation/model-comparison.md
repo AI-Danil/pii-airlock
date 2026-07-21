@@ -1,6 +1,6 @@
 # Local detector comparison
 
-Run date: 21 July 2026. Dataset: 52 synthetic documents (`26 ru + 26 en`), including 6 clean controls and 20 adversarial cases. Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. The cloud provider was not called. Latency belongs to one local machine and the installed model builds, so it is not a transferable performance claim.
+Run date: 21 July 2026. Dataset: 52 synthetic documents (`26 ru + 26 en`), including 6 clean controls and 20 adversarial cases. Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. The cloud provider was not called. The run used the former `typed` token mode; it measures detection and deterministic redaction, not provider-answer quality. The runtime now defaults to per-occurrence `opaque` tokens. Latency belongs to one local machine and the installed model builds, so it is not a transferable performance claim.
 
 The previous 30-case run is not a baseline for direct comparison. This run expanded the dataset and corrected four oracle values that were not literal source substrings.
 
@@ -29,7 +29,7 @@ The previous 30-case run is not a baseline for direct comparison. This run expan
 
 Qwen found more labelled entities overall, but returned 11 model values that were not exact input substrings. The hybrid path retained deterministic rule spans for inspection; automatic completion stayed blocked until a person would confirm or edit those spans. Gemma returned valid structured output in every case, but nine payloads that passed the runtime gate still contained a labelled value. Qwen was explicitly loaded with a 4,096-token context, one prediction slot, and speculative MTP disabled after the previous local runtime became unresponsive; the benchmark used a 30-second per-case timeout. Gemma was then loaded with the same settings. No timed-out case appears in the published result.
 
-The fixture oracle stopped those nine Gemma payloads because it had the expected answers. An arbitrary document has no such oracle. `Fixture-assisted review projection` goes further: the benchmark applies the fixture labels as redactions and reruns the gate. It shows what the deterministic pipeline would do with perfect labels, not what a real reviewer achieved.
+The fixture oracle stopped those nine Gemma payloads because it had the expected answers. An arbitrary document has no such oracle. `Fixture-assisted review projection` goes further: the benchmark applies the fixture labels as redactions and reruns the gate. It shows what the deterministic pipeline would do with perfect labels, not what a real reviewer achieved. A separate blind bundle and scoring protocol now exist, but no independent labels have been collected; the human-review status is `not_collected`.
 
 Per-type recall exposes different gaps. Qwen recall was 0.75 for `PERSON`, 0.6667 for `ADDRESS`, 0.5 for `ORG`, and 0.5 for `OTHER_SECRET`. Gemma recall was 0.4375 for `PERSON`, 0.5 for `ORG`, and 0.3333 for `TAX_ID`. Both reached 1.0 recall on the labelled phone and email cases, but that small synthetic slice does not establish general coverage.
 
@@ -38,7 +38,7 @@ The Qwen build placed schema-constrained JSON in `reasoning_content` while leavi
 Machine-readable per-case output: [`live-combined.json`](live-combined.json). Reproduce with:
 
 ```bash
-pii-airlock benchmark --models qwen,gemma --timeout 30 --output docs/evaluation/live-combined.json
+pii-airlock benchmark --models qwen,gemma --timeout 30 --token-mode typed --output docs/evaluation/live-combined.json
 ```
 
 Repeated runs may differ despite temperature `0`. Model builds and hardware can change detection and latency.

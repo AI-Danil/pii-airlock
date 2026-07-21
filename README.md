@@ -2,7 +2,7 @@
 
 [Русская версия](README.ru.md)
 
-PII Airlock is a small local gateway for testing pseudonymization before a cloud-model call. Deterministic rules and LM Studio propose sensitive substrings; Python code maps Unicode-obfuscated rule matches back to exact source spans, validates model proposals, replaces only selected spans with operation-scoped tokens, and scans the result again. The provider response is accepted only if every PII-like token belongs to that operation and appears no more often than it did in the request.
+PII Airlock is a small local gateway for testing pseudonymization before a cloud-model call. Deterministic rules and LM Studio propose sensitive substrings; Python maps Unicode-obfuscated rule matches back to exact source spans, validates model proposals, replaces selected spans with operation-scoped tokens, and scans the result again. The default opaque tokens hide entity types and do not expose repeated-value linkage. The provider response is accepted only if every PII-like token belongs to that operation and appears no more often than it did in the request.
 
 The project does not determine that a document is safe. Its runtime checks missed known controls in the published synthetic run. The Web UI therefore uses `READY_FOR_REVIEW`, not `SAFE_TO_SEND`, and cloud access is off until both an API key and a model are configured.
 
@@ -14,7 +14,7 @@ The project does not determine that a document is safe. Its runtime checks misse
 flowchart LR
     A["Untrusted task and document"] --> B["Rules plus LM Studio on loopback"]
     B --> C["Exact-span validation and review"]
-    C --> D["Operation-scoped tokens"]
+    C --> D["Opaque, per-occurrence tokens"]
     D --> E["Rules-based residual scan"]
     E -->|blocked| X["No provider call; mapping destroyed"]
     E -->|ready for review| R["Outbound content shown to caller"]
@@ -37,7 +37,8 @@ git clone https://github.com/AI-Danil/pii-airlock.git
 cd pii-airlock
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev]'
+python -m pip install --require-hashes --only-binary :all: -r requirements-dev.lock
+python -m pip install --no-deps --no-build-isolation -e .
 pii-airlock serve
 ```
 
@@ -49,6 +50,8 @@ pii-airlock serve
 ```
 
 Set the token before starting the process. Machine clients send the same value as `Authorization: Bearer <token>`.
+
+`opaque` is the default token mode. It creates a different token for every selected occurrence and does not encode the entity type. `typed` is available for diagnostics through `--token-mode typed` or `PII_AIRLOCK_TOKEN_MODE=typed`, but it reveals type and equality information to the provider.
 
 Open `http://127.0.0.1:8787`. With no cloud configuration, completion ends as a dry-run and shows the provider-bound `instructions` and `input_text`.
 
@@ -67,12 +70,13 @@ Protocol references: [LM Studio structured output](https://lmstudio.ai/docs/deve
 ## CLI
 
 ```bash
-pii-airlock inspect document.docx --model qwen
-pii-airlock complete document.pdf --task "Summarize" --model gemma
-pii-airlock benchmark --models qwen,gemma --timeout 30 --output docs/evaluation/live-combined.json
+pii-airlock inspect document.docx --model qwen --token-mode opaque
+pii-airlock complete document.pdf --task "Summarize" --model gemma --token-mode opaque
+pii-airlock benchmark --models qwen,gemma --timeout 30 --token-mode opaque --output result.json
+pii-airlock verify-receipt review-receipt.json
 ```
 
-V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. OCR, images, archives, and inputs above 20,000 extracted characters are rejected. DOCX expansion is capped at 25 MB; PDFs are capped at 100 pages.
+V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. Extraction returns a manifest describing the format, text length, covered document regions, and active isolation. DOCX headers, footers, paragraphs, and tables are included; unsupported hidden or active parts are rejected instead of silently omitted. PDFs with attachments, JavaScript, forms, annotations, optional layers, or automatic actions are rejected. OCR, images, archives, and inputs above 20,000 extracted characters are outside V1. DOCX expansion is capped at 25 MB; PDFs are capped at 100 pages. Binary parsers run in spawned workers with resource limits, cleared ambient credentials, Python capability guards, and a macOS OS sandbox when available. Other platforms report the missing OS sandbox in the manifest.
 
 ## Local API
 
@@ -84,12 +88,15 @@ V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. OCR, imag
 | `POST` | `/api/v1/operations/{id}/complete` | Run dry-run/provider call and destroy the mapping |
 | `DELETE` | `/api/v1/operations/{id}` | Destroy the operation immediately |
 | `POST` | `/api/v1/complete` | Bearer-only stateless path; disabled without `PII_AIRLOCK_API_TOKEN` |
+| `POST` | `/api/v1/receipts/verify` | Verify a review receipt against the current configured signing key |
 
 The Web UI gets a random HttpOnly, SameSite=Strict session cookie. Its state-changing requests also require an exact same-origin `Origin`. A valid bearer token can call state-changing routes without a browser session. Requests above 5 MiB + 64 KiB are rejected before document parsing. `READY_FOR_REVIEW` means only that the implemented checks found no residual value they recognize.
 
+After review, completion returns an HMAC-signed receipt containing source and token fingerprints, span metadata, review channel, warnings, model, token mode, and optional build commit. It contains neither source values nor tokens. Set a random `PII_AIRLOCK_RECEIPT_KEY` of at least 32 characters if receipts must survive a process restart; without it the signing key is ephemeral. A valid receipt proves consistency with one Airlock process and key, not that the reviewer was correct or the document was anonymous.
+
 ## Published run: 21 July 2026
 
-The repository contains 52 synthetic cases: 26 Russian and 26 English. Six are clean controls and 20 are tagged adversarial cases, including Unicode/zero-width obfuscation, split contact values, and prompt-like instructions. No cloud request was made during the benchmark. The original 30-case numbers are not directly comparable: the fixture set was expanded and four incorrect oracle spans were corrected before this run.
+The repository contains 52 synthetic cases: 26 Russian and 26 English. Six are clean controls and 20 are tagged adversarial cases, including Unicode/zero-width obfuscation, split contact values, and prompt-like instructions. No cloud request was made during the benchmark. The original 30-case numbers are not directly comparable: the fixture set was expanded and four incorrect oracle spans were corrected before this run. This run predates the opaque default and is explicitly recorded as `token_mode: typed`; detector recall is still reproducible, but no provider-answer quality was measured for either token mode.
 
 | Metric | Qwen 3.5 9B | Gemma 4 E4B |
 |---|---:|---:|
@@ -108,9 +115,11 @@ Qwen produced 11 non-exact model proposals. The hybrid detector now preserves de
 
 See the [comparison note](docs/evaluation/model-comparison.md) and [machine-readable run](docs/evaluation/live-combined.json).
 
+The repository also contains a detached 52-item blind-review bundle and a pre-registered scoring protocol. It excludes fixture labels and original case IDs. No independent reviewer has completed it, so the human-review result is honestly `not_collected`; fixture-assisted projections are not presented as human evidence.
+
 ## Security limits
 
-Rules cover selected email, phone, payment-card, key, passport, tax-ID, contract-ID, and labelled-secret formats, including several whitespace and Unicode obfuscations. They do not cover every name, address, organization, identifier, credential, or visual confusable. A local model can miss an entity or follow an instruction embedded in a document. Prompt-like source text is visibly flagged; the unattended stateless route blocks it. Delimiting untrusted content reduces instruction confusion but is not a sandbox. Exact-substring validation prevents invented replacements; it does not improve recall.
+Rules cover selected email, phone, payment-card, key, passport, tax-ID, contract-ID, and labelled-secret formats, including several whitespace and Unicode obfuscations. They do not cover every name, address, organization, identifier, credential, or visual confusable. A local model can miss an entity or follow an instruction embedded in a document. Prompt-like source text is visibly flagged; the unattended stateless route blocks it. Delimiting untrusted content reduces instruction confusion but is not a sandbox. Exact-substring validation prevents invented replacements; it does not improve recall. Restored provider text is explicitly marked `untrusted_model_output`; downstream tools and external actions require a separate user confirmation policy.
 
 Use synthetic data while evaluating the project. For real high-risk documents, keep cloud disabled and use an independently reviewed policy and detector set. See [SECURITY.md](SECURITY.md) and the [architecture and threat model](docs/architecture.md).
 
@@ -120,10 +129,11 @@ Use synthetic data while evaluating the project. For real high-risk documents, k
 pytest
 ruff check .
 ruff format --check .
-python -m compileall -q src tests
+python -m compileall -q src tests scripts
 python scripts/scan_secrets.py
+pip-audit --disable-pip --no-deps -r requirements.lock
 ```
 
-The offline suite currently contains 88 tests. GitHub Actions runs it on Python 3.11 and 3.12 with stubs. Separate workflows audit locked runtime dependencies, generate a CycloneDX SBOM, and attest tagged release artifacts. LM Studio and provider credentials are not used in CI.
+The offline suite currently contains 96 tests, including property-based token checks and random binary parser rejection. Clean hash-locked installs and the suite passed locally on Python 3.11 and 3.12. GitHub Actions repeats the checks with stubs. Separate workflows audit locked runtime dependencies, generate a CycloneDX SBOM, and attest tagged release artifacts. LM Studio and provider credentials are not used in CI.
 
 MIT License.

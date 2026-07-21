@@ -47,11 +47,27 @@ def test_health_and_cookie_authenticated_dry_run_operation() -> None:
         assert "Alice Carter" not in payload["sanitized_fields"]["text"]
         assert payload["redactions"][0]["field"] == "text"
         assert "value" not in payload["redactions"][0]
+        assert payload["token_mode"] == "opaque"
         completion = client.post(
             f"/api/v1/operations/{payload['operation_id']}/complete",
             headers=ORIGIN_HEADERS,
         )
         assert completion.json()["cloud_status"] == "DRY_RUN"
+        receipt = completion.json()["review_receipt"]
+        assert "Alice Carter" not in str(receipt)
+        verified = client.post(
+            "/api/v1/receipts/verify",
+            json={"receipt": receipt},
+            headers=ORIGIN_HEADERS,
+        )
+        assert verified.json()["valid"] is True
+        receipt["review_revision"] = 999
+        rejected = client.post(
+            "/api/v1/receipts/verify",
+            json={"receipt": receipt},
+            headers=ORIGIN_HEADERS,
+        )
+        assert rejected.json()["valid"] is False
 
 
 def test_web_ui_sets_http_only_strict_session_cookie() -> None:

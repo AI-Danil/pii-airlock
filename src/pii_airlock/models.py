@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Any
 
 TOKEN_HANDLING_INSTRUCTIONS = (
-    "Preserve every token matching __PII_<nonce>_<TYPE>_<number>__ exactly. "
+    "Preserve every placeholder that begins with __PII_ and ends with __ exactly. "
     "Never invent, alter, expand, duplicate or explain a PII token."
 )
 UNTRUSTED_CONTENT_INSTRUCTIONS = (
@@ -27,6 +27,20 @@ class EntityType(StrEnum):
     CARD = "CARD"
     API_KEY = "API_KEY"
     OTHER_SECRET = "OTHER_SECRET"
+
+
+class TokenMode(StrEnum):
+    OPAQUE = "opaque"
+    TYPED = "typed"
+
+
+UNTRUSTED_OUTPUT_POLICY: dict[str, object] = {
+    "level": "untrusted_model_output",
+    "downstream_actions": "require_user_confirmation",
+    "may_create_tasks": False,
+    "may_call_tools": False,
+    "may_send_messages": False,
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +65,7 @@ class RedactionResult:
     entities: tuple[Entity, ...]
     redactions: tuple[RedactionSpan, ...]
     nonce: str
+    token_mode: TokenMode
 
 
 @dataclass
@@ -62,6 +77,7 @@ class Operation:
     entity_counts: dict[str, int]
     created_at: float
     expires_at: float
+    token_mode: TokenMode = TokenMode.OPAQUE
     source_hashes: dict[str, str] = field(default_factory=dict, repr=False)
     redactions: tuple[RedactionSpan, ...] = ()
     status: str = "READY_FOR_REVIEW"
@@ -69,6 +85,7 @@ class Operation:
     security_warnings: list[str] = field(default_factory=list)
     detector_warnings: list[str] = field(default_factory=list)
     review_revision: int = 0
+    review_channel: str = "not_recorded"
 
     def outbound_content(self) -> dict[str, str]:
         return {
@@ -87,6 +104,7 @@ class Operation:
         return {
             "operation_id": self.id,
             "model": self.model,
+            "token_mode": self.token_mode.value,
             "sanitized_fields": dict(self.sanitized_fields),
             "outbound_content": self.outbound_content(),
             "entity_counts": dict(self.entity_counts),

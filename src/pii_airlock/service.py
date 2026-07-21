@@ -13,6 +13,7 @@ from .clients import CloudClient, OpenAIResponsesClient
 from .detectors import Detector, HybridDetector, LMStudioDetector
 from .gate import assert_no_deterministic_leaks, entity_counts
 from .models import (
+    UNTRUSTED_OUTPUT_POLICY,
     AirlockError,
     EntityType,
     GateBlocked,
@@ -21,7 +22,9 @@ from .models import (
     ReviewError,
     ServiceBusyError,
     StoreCapacityError,
+    TokenMode,
 )
+from .receipts import ReceiptSigner
 from .redaction import audit_cloud_tokens, redact_fields, redact_spans, restore_text
 from .trust import inspect_untrusted_content
 
@@ -138,6 +141,8 @@ class AirlockService:
         cloud_client: CloudClient | None = None,
         store: OperationStore | None = None,
         max_concurrent_analyses: int = 4,
+        token_mode: TokenMode | str | None = None,
+        receipt_signer: ReceiptSigner | None = None,
     ) -> None:
         if max_concurrent_analyses <= 0:
             raise ValueError("Analysis concurrency must be positive.")
@@ -145,12 +150,21 @@ class AirlockService:
         self.cloud_client = cloud_client if cloud_client is not None else _cloud_from_env()
         self.store = store or OperationStore()
         self._analysis_slots = threading.BoundedSemaphore(max_concurrent_analyses)
+        self.token_mode = TokenMode(token_mode or os.getenv("PII_AIRLOCK_TOKEN_MODE", TokenMode.OPAQUE.value))
+        self.receipt_signer = receipt_signer or ReceiptSigner.from_env()
 
     @property
     def cloud_enabled(self) -> bool:
         return self.cloud_client is not None
 
-    def create_operation(self, *, text: str, task: str, model: str) -> Operation:
+    def create_operation(
+        self,
+        *,
+        text: str,
+        task: str,
+        model: str,
+        token_mode: TokenMode | str | None = None,
+    ) -> Operation:
         if not self._analysis_slots.acquire(blocking=False):
             raise ServiceBusyError("All local analysis slots are busy; retry later.")
         fields = {"task": task, "text": text}
@@ -166,7 +180,8 @@ class AirlockService:
                 entities = self.detector.detect(combined, model=model)
                 detector_warnings = []
                 requires_manual_review = False
-            redaction = redact_fields(fields, entities)
+            selected_token_mode = TokenMode(token_mode or self.token_mode)
+            redaction = redact_fields(fields, entities, token_mode=selected_token_mode)
         finally:
             self._analysis_slots.release()
         now = time.monotonic()
@@ -178,6 +193,7 @@ class AirlockService:
             entity_counts=entity_counts(redaction),
             created_at=now,
             expires_at=now + self.store.ttl_seconds,
+            token_mode=redaction.token_mode,
             source_hashes={name: _source_hash(value) for name, value in fields.items()},
             redactions=redaction.redactions,
             security_warnings=inspect_untrusted_content(fields),
@@ -210,6 +226,7 @@ class AirlockService:
         *,
         fields: dict[str, str],
         edits: list[dict[str, object]],
+        review_channel: str = "local_api",
     ) -> Operation:
         def apply_review(operation: Operation) -> None:
             if set(fields) != {"task", "text"}:
@@ -249,13 +266,14 @@ class AirlockService:
                 else:
                     raise ReviewError("Unknown redaction review action.")
 
-            replacement = redact_spans(fields, spans)
+            replacement = redact_spans(fields, spans, token_mode=operation.token_mode)
             old_mapping = operation.mapping
             operation.sanitized_fields = replacement.sanitized_fields
             operation.mapping = replacement.mapping
             operation.redactions = replacement.redactions
             operation.entity_counts = entity_counts(replacement)
             operation.review_revision += 1
+            operation.review_channel = review_channel
             operation.status = "READY_FOR_REVIEW"
             operation.blocked_reasons = []
             try:
@@ -274,8 +292,15 @@ class AirlockService:
         try:
             if operation.status != "READY_FOR_REVIEW":
                 raise GateBlocked(operation.blocked_reasons)
+            review_receipt = self.receipt_signer.sign_operation(operation)
             if not self.cloud_client:
-                return {**operation.public_dict(), "cloud_status": "DRY_RUN", "restored_text": None}
+                return {
+                    **operation.public_dict(),
+                    "cloud_status": "DRY_RUN",
+                    "restored_text": None,
+                    "output_trust": None,
+                    "review_receipt": review_receipt,
+                }
             outbound = operation.outbound_content()
             cloud_text = self.cloud_client.complete(
                 instructions=outbound["instructions"],
@@ -289,12 +314,26 @@ class AirlockService:
                 "cloud_status": "COMPLETED",
                 "restored_text": restored,
                 "token_audit": token_audit,
+                "output_trust": dict(UNTRUSTED_OUTPUT_POLICY),
+                "review_receipt": review_receipt,
             }
         finally:
             operation.mapping.clear()
 
-    def complete_stateless(self, *, instructions: str, input_text: str, model: str) -> dict[str, object]:
-        operation = self.create_operation(text=input_text, task=instructions, model=model)
+    def complete_stateless(
+        self,
+        *,
+        instructions: str,
+        input_text: str,
+        model: str,
+        token_mode: TokenMode | str | None = None,
+    ) -> dict[str, object]:
+        operation = self.create_operation(
+            text=input_text,
+            task=instructions,
+            model=model,
+            token_mode=token_mode,
+        )
         if operation.security_warnings:
             self.store.delete(operation.id)
             raise GateBlocked(["Stateless mode rejected possible prompt injection or external-action instructions."])
@@ -302,6 +341,9 @@ class AirlockService:
 
     def close(self) -> None:
         self.store.close()
+
+    def verify_review_receipt(self, receipt: dict[str, object]) -> bool:
+        return self.receipt_signer.verify(receipt)
 
 
 def _cloud_from_env() -> CloudClient | None:

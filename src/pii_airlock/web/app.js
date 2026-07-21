@@ -5,6 +5,7 @@ let analyzedFields = null;
 let currentOperation = null;
 let selectedSourceSpan = null;
 let selectedRedaction = null;
+let currentReceipt = null;
 
 async function requestJSON(url, options = {}) {
   const response = await fetch(url, { credentials: 'same-origin', ...options });
@@ -21,7 +22,7 @@ async function health() {
     const data = await requestJSON('/api/v1/health');
     cloudConfigured = data.cloud_configured;
     $('complete').textContent = cloudConfigured ? 'I reviewed it — send' : 'Finish dry-run';
-    $('health').textContent = `LM Studio: ${data.lm_studio.reachable ? 'reachable' : 'offline'} · Provider: ${cloudConfigured ? 'configured' : 'dry-run only'}`;
+    $('health').textContent = `LM Studio: ${data.lm_studio.reachable ? 'reachable' : 'offline'} · Provider: ${cloudConfigured ? 'configured' : 'dry-run only'} · Default tokens: ${data.default_token_mode}`;
   } catch (error) {
     $('health').textContent = `Health check failed: ${error.message}`;
   }
@@ -35,6 +36,8 @@ $('file').addEventListener('change', async () => {
   try {
     const data = await requestJSON('/api/v1/documents/extract', { method: 'POST', body: form });
     $('source').value = data.text;
+    const manifest = data.manifest;
+    $('fileManifest').textContent = `${manifest.format.toUpperCase()} · ${manifest.text_characters} chars · ${manifest.parser_isolation}`;
   } catch (error) {
     setStatus('BLOCKED', error.message);
   }
@@ -54,6 +57,7 @@ $('analyze').addEventListener('click', async () => {
         text: $('source').value,
         task: $('task').value,
         model: $('model').value,
+        token_mode: $('tokenMode').value,
       }),
     });
     operationId = data.operation_id;
@@ -68,6 +72,11 @@ $('complete').addEventListener('click', async () => {
   try {
     const data = await requestJSON(`/api/v1/operations/${operationId}/complete`, { method: 'POST' });
     $('answer').textContent = data.restored_text || 'Dry-run finished. The displayed outbound content was not sent.';
+    if (data.output_trust) {
+      $('answer').textContent += `\n\nTrust: ${data.output_trust.level}; actions: ${data.output_trust.downstream_actions}.`;
+    }
+    currentReceipt = data.review_receipt || null;
+    $('downloadReceipt').hidden = !currentReceipt;
     setStatus(data.cloud_status === 'COMPLETED' ? 'COMPLETED' : 'DRY RUN COMPLETE');
     $('complete').disabled = true;
     $('destroy').disabled = true;
@@ -93,6 +102,8 @@ $('destroy').addEventListener('click', async () => {
 function resetOutputs() {
   selectedSourceSpan = null;
   selectedRedaction = null;
+  currentReceipt = null;
+  $('downloadReceipt').hidden = true;
   $('entities').textContent = 'Analyzing…';
   $('redactionPreview').replaceChildren();
   $('securityWarnings').replaceChildren();
@@ -151,6 +162,7 @@ function updateOperationView(data) {
   renderWarnings(data.security_warnings || [], data.detector_warnings || []);
   renderRedactionPreview(data.redactions || []);
   $('payload').textContent = JSON.stringify(data.outbound_content, null, 2);
+  $('tokenMode').value = data.token_mode;
   $('reviewTools').hidden = false;
   updateReviewButtons();
   $('destroy').disabled = false;
@@ -257,6 +269,16 @@ $('retagSelection').addEventListener('click', () => {
     end: selectedRedaction.end,
     type: $('reviewType').value,
   });
+});
+
+$('downloadReceipt').addEventListener('click', () => {
+  if (!currentReceipt) return;
+  const blob = new Blob([`${JSON.stringify(currentReceipt, null, 2)}\n`], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `pii-airlock-review-${currentReceipt.operation_id}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 });
 
 function setStatus(label, detail = '') {

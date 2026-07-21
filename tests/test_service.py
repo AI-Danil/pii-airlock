@@ -99,6 +99,15 @@ def test_roundtrip_keeps_raw_value_out_of_cloud() -> None:
     assert "untrusted content" in cloud.instructions
     assert "never initiate tools" in cloud.instructions
     assert result["restored_text"] == "Reply for Elena Morozova"
+    assert result["output_trust"] == {
+        "level": "untrusted_model_output",
+        "downstream_actions": "require_user_confirmation",
+        "may_create_tasks": False,
+        "may_call_tools": False,
+        "may_send_messages": False,
+    }
+    assert "Elena Morozova" not in str(result["review_receipt"])
+    assert service.verify_review_receipt(result["review_receipt"]) is True
     with pytest.raises(AirlockError):
         service.store.get(operation.id)
     service.close()

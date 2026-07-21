@@ -1,6 +1,7 @@
 {
   "generated_from": "fixtures/synthetic_cases.jsonl",
   "dataset_cases": 52,
+  "token_mode": "typed",
   "scope": "Synthetic fixtures only. The fixture oracle is unavailable for arbitrary documents.",
   "models": [
     {

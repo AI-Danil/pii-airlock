@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .detectors import Detector, HybridDetector, LMStudioDetector
 from .gate import assert_no_deterministic_leaks
-from .models import AirlockError, DetectionError, Entity, EntityType, GateBlocked
+from .models import AirlockError, DetectionError, Entity, EntityType, GateBlocked, TokenMode
 from .redaction import redact_fields, restore_text
 
 
@@ -32,6 +32,7 @@ def run_benchmark(
     models: list[str],
     detector: Detector | None = None,
     progress: Callable[[str, int, int, str], None] | None = None,
+    token_mode: TokenMode | str = TokenMode.OPAQUE,
 ) -> dict[str, object]:
     cases = load_cases(path)
     selected_detector = detector or HybridDetector(LMStudioDetector())
@@ -98,7 +99,7 @@ def run_benchmark(
                 if not expected and not actual:
                     clean_cases_without_detections += 1
                 extra_replacement_values += len({value for value, _ in actual} - {value for value, _ in expected})
-                redaction = redact_fields({"text": text}, entities)
+                redaction = redact_fields({"text": text}, entities, token_mode=token_mode)
                 assert_no_deterministic_leaks(redaction)
                 leaked = [value for value, _ in expected if value in redaction.sanitized_fields["text"]]
                 cloud_echo = "Acknowledged: " + " ".join(redaction.mapping)
@@ -132,7 +133,7 @@ def run_benchmark(
             durations.append(duration)
             if expected:
                 fixture_entities = [Entity(value, EntityType(entity_type)) for value, entity_type in expected]
-                fixture_redaction = redact_fields({"text": text}, fixture_entities)
+                fixture_redaction = redact_fields({"text": text}, fixture_entities, token_mode=token_mode)
                 try:
                     assert_no_deterministic_leaks(fixture_redaction)
                 except GateBlocked:
@@ -200,6 +201,7 @@ def run_benchmark(
     return {
         "generated_from": str(path),
         "dataset_cases": len(cases),
+        "token_mode": TokenMode(token_mode).value,
         "scope": "Synthetic fixtures only. The fixture oracle is unavailable for arbitrary documents.",
         "models": reports,
     }

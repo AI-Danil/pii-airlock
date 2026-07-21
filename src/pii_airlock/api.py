@@ -17,8 +17,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .detectors import SUPPORTED_MODELS
-from .documents import MAX_BYTES, extract_bytes
-from .models import AirlockError, OperationNotFound, ServiceBusyError, StoreCapacityError
+from .documents import MAX_BYTES, extract_bytes_with_manifest
+from .models import AirlockError, OperationNotFound, ServiceBusyError, StoreCapacityError, TokenMode
 from .service import AirlockService
 
 LOGGER = logging.getLogger("pii_airlock.audit")
@@ -87,6 +87,7 @@ class OperationRequest(BaseModel):
     text: str = Field(min_length=1, max_length=20_000)
     task: str = Field(min_length=1, max_length=4_000)
     model: str = "qwen/qwen3.5-9b"
+    token_mode: TokenMode = TokenMode.OPAQUE
 
 
 class StatelessRequest(BaseModel):
@@ -94,6 +95,7 @@ class StatelessRequest(BaseModel):
     input_text: str = Field(min_length=1, max_length=20_000)
     input_trust: Literal["untrusted"] = "untrusted"
     model: str = "qwen/qwen3.5-9b"
+    token_mode: TokenMode = TokenMode.OPAQUE
 
 
 class ReviewEdit(BaseModel):
@@ -108,6 +110,10 @@ class RedactionReviewRequest(BaseModel):
     task: str = Field(min_length=1, max_length=4_000)
     text: str = Field(min_length=1, max_length=20_000)
     edits: list[ReviewEdit] = Field(max_length=100)
+
+
+class ReceiptVerifyRequest(BaseModel):
+    receipt: dict[str, object]
 
 
 def create_app(
@@ -197,11 +203,14 @@ def create_app(
             "cloud_configured": airlock.cloud_enabled,
             "stateless_api_enabled": bool(configured_api_token),
             "supported_models": list(SUPPORTED_MODELS),
+            "supported_token_modes": [mode.value for mode in TokenMode],
+            "default_token_mode": airlock.token_mode.value,
+            "receipt_key_persistent": airlock.receipt_signer.persistent_key,
             "lm_studio": _lm_studio_health(),
         }
 
     @app.post("/api/v1/documents/extract")
-    async def extract_document(file: Annotated[UploadFile, File()]) -> dict[str, str]:
+    async def extract_document(file: Annotated[UploadFile, File()]) -> dict[str, object]:
         suffix = Path(file.filename or "").suffix
         try:
             document_bytes = await file.read(MAX_BYTES + 1)
@@ -210,18 +219,27 @@ def create_app(
                     status_code=413,
                     detail={"code": "document_too_large", "message": "Document exceeds the 5 MB limit."},
                 )
-            text = extract_bytes(document_bytes, suffix)
+            extracted = extract_bytes_with_manifest(document_bytes, suffix)
         except HTTPException:
             raise
         except AirlockError as exc:
             raise _as_http_exception(exc) from exc
-        return {"filename": file.filename or "document", "text": text}
+        return {
+            "filename": file.filename or "document",
+            "text": extracted.text,
+            "manifest": extracted.manifest.public_dict(),
+        }
 
     @app.post("/api/v1/operations")
     def create_operation(payload: OperationRequest) -> dict[str, object]:
         _validate_model(payload.model)
         try:
-            operation = airlock.create_operation(text=payload.text, task=payload.task, model=payload.model)
+            operation = airlock.create_operation(
+                text=payload.text,
+                task=payload.task,
+                model=payload.model,
+                token_mode=payload.token_mode,
+            )
         except AirlockError as exc:
             LOGGER.info(json.dumps({"event": "operation_blocked", "reason": type(exc).__name__}))
             raise _as_http_exception(exc) from exc
@@ -260,12 +278,17 @@ def create_app(
         return result
 
     @app.patch("/api/v1/operations/{operation_id}/redactions")
-    def review_redactions(operation_id: str, payload: RedactionReviewRequest) -> dict[str, object]:
+    def review_redactions(
+        operation_id: str,
+        payload: RedactionReviewRequest,
+        http_request: Request,
+    ) -> dict[str, object]:
         try:
             operation = airlock.review_redactions(
                 operation_id,
                 fields={"task": payload.task, "text": payload.text},
                 edits=[item.model_dump() for item in payload.edits],
+                review_channel=("bearer" if _bearer_matches(http_request, configured_api_token) else "browser_session"),
             )
         except AirlockError as exc:
             LOGGER.info(
@@ -292,6 +315,13 @@ def create_app(
     def delete_operation(operation_id: str) -> dict[str, bool]:
         return {"deleted": airlock.store.delete(operation_id)}
 
+    @app.post("/api/v1/receipts/verify")
+    def verify_receipt(payload: ReceiptVerifyRequest) -> dict[str, object]:
+        return {
+            "valid": airlock.verify_review_receipt(payload.receipt),
+            "key_id": airlock.receipt_signer.key_id,
+        }
+
     @app.post("/api/v1/complete")
     def complete_stateless(payload: StatelessRequest) -> dict[str, object]:
         _validate_model(payload.model)
@@ -300,6 +330,7 @@ def create_app(
                 instructions=payload.instructions,
                 input_text=payload.input_text,
                 model=payload.model,
+                token_mode=payload.token_mode,
             )
         except AirlockError as exc:
             LOGGER.info(json.dumps({"event": "stateless_blocked", "reason": type(exc).__name__}))

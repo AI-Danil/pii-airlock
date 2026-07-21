@@ -10,7 +10,7 @@ from pypdf import PdfWriter
 from reportlab.pdfgen import canvas
 
 from pii_airlock import documents
-from pii_airlock.documents import extract_bytes, extract_path
+from pii_airlock.documents import extract_bytes, extract_bytes_with_manifest, extract_path
 from pii_airlock.models import AirlockError, ServiceBusyError
 
 
@@ -29,6 +29,11 @@ def test_docx_paragraphs_and_tables() -> None:
     text = extract_bytes(buffer.getvalue(), ".docx")
     assert "Alice Carter" in text
     assert "alice@example.test" in text
+
+    extracted = extract_bytes_with_manifest(buffer.getvalue(), ".docx")
+    assert extracted.manifest.format == "docx"
+    assert extracted.manifest.tables == 1
+    assert "spawn" in extracted.manifest.parser_isolation
 
 
 def test_pdf_without_text_layer_is_rejected() -> None:
@@ -128,3 +133,27 @@ def test_pdf_object_count_and_path_read_are_bounded(monkeypatch, tmp_path) -> No
     oversized.write_bytes(b"x" * (documents.MAX_BYTES + 1))
     with pytest.raises(AirlockError, match="5 MB"):
         extract_path(oversized)
+
+
+def test_docx_unsupported_content_is_blocked_instead_of_silently_omitted() -> None:
+    doc = Document()
+    doc.add_paragraph("Alice Carter")
+    source = BytesIO()
+    doc.save(source)
+    rewritten = BytesIO()
+    with ZipFile(source, "r") as old, ZipFile(rewritten, "w", ZIP_DEFLATED) as new:
+        for member in old.infolist():
+            new.writestr(member, old.read(member.filename))
+        new.writestr("word/comments.xml", "<w:comments/>")
+    with pytest.raises(AirlockError, match="comments"):
+        extract_bytes(rewritten.getvalue(), ".docx")
+
+
+def test_pdf_attachments_are_blocked_instead_of_silently_omitted() -> None:
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    writer.add_attachment("hidden.txt", b"synthetic hidden value")
+    buffer = BytesIO()
+    writer.write(buffer)
+    with pytest.raises(AirlockError, match="embedded_files"):
+        extract_bytes(buffer.getvalue(), ".pdf")

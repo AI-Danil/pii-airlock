@@ -17,17 +17,24 @@
     </header>
 
     <section class="controls card">
-      <label>Local detector
+      <label for="model">Local detector
         <select id="model">
           <option value="qwen/qwen3.5-9b">Qwen 3.5 9B</option>
           <option value="google/gemma-4-e4b">Gemma 4 E4B</option>
         </select>
       </label>
-      <label>Task
+      <label for="tokenMode">Placeholder privacy
+        <select id="tokenMode">
+          <option value="opaque">Opaque · hides type and repeat links</option>
+          <option value="typed">Typed · preserves type and repeat links</option>
+        </select>
+      </label>
+      <label for="task">Task
         <input id="task" value="Write a concise, polite reply while preserving every PII token exactly.">
       </label>
-      <label class="file">Load TXT / MD / DOCX / PDF
+      <label class="file" for="file">Load TXT / MD / DOCX / PDF
         <input id="file" type="file" accept=".txt,.md,.docx,.pdf">
+        <small id="fileManifest">No document parser manifest yet.</small>
       </label>
     </section>
 
@@ -44,7 +51,7 @@
         <div id="securityWarnings" class="warnings" aria-live="polite"></div>
         <div id="redactionPreview" class="redaction-preview muted" aria-live="polite"></div>
         <div id="reviewTools" class="review-tools" hidden>
-          <label>Manual type
+          <label for="reviewType">Manual type
             <select id="reviewType">
               <option>PERSON</option><option>PHONE</option><option>EMAIL</option><option>ADDRESS</option>
               <option>ORG</option><option>CONTRACT_ID</option><option>PASSPORT</option><option>TAX_ID</option>
@@ -74,6 +81,7 @@
       <div id="status" class="status idle" role="status" aria-live="polite">NOT ANALYZED</div>
       <button id="analyze">Run local check</button>
       <button id="complete" class="secondary" disabled>I reviewed it — continue</button>
+      <button id="downloadReceipt" class="ghost receipt" hidden>Download signed receipt</button>
       <button id="destroy" class="ghost" disabled>Destroy mapping</button>
     </footer>
   </main>

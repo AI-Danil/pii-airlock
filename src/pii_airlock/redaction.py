@@ -4,13 +4,28 @@ import re
 import secrets
 from collections import Counter
 
-from .models import DetectionError, Entity, EntityType, RedactionResult, RedactionSpan, ReviewError, UnknownTokenError
+from .models import (
+    DetectionError,
+    Entity,
+    EntityType,
+    RedactionResult,
+    RedactionSpan,
+    ReviewError,
+    TokenMode,
+    UnknownTokenError,
+)
 
 RESERVED_TOKEN_PREFIX = "__PII_"
-TOKEN_PATTERN = re.compile(r"__PII_[A-F0-9]{8,32}_[A-Z_]+_\d{4}__")
+TOKEN_PATTERN = re.compile(r"__PII_[A-F0-9]{8,32}_(?:[A-Z][A-Z_]*_)?\d{4}__")
 
 
-def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str | None = None) -> RedactionResult:
+def redact_fields(
+    fields: dict[str, str],
+    entities: list[Entity],
+    *,
+    nonce: str | None = None,
+    token_mode: TokenMode | str = TokenMode.OPAQUE,
+) -> RedactionResult:
     _validate_fields(fields)
 
     accepted: list[Entity] = []
@@ -52,7 +67,7 @@ def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str 
     selections = {
         field: [(start, end, entity.type) for start, end, entity in spans] for field, spans in selected_by_field.items()
     }
-    return redact_spans(fields, selections, nonce=nonce)
+    return redact_spans(fields, selections, nonce=nonce, token_mode=token_mode)
 
 
 def redact_spans(
@@ -60,10 +75,12 @@ def redact_spans(
     spans_by_field: dict[str, list[tuple[int, int, EntityType]]],
     *,
     nonce: str | None = None,
+    token_mode: TokenMode | str = TokenMode.OPAQUE,
 ) -> RedactionResult:
     """Redact only the exact reviewed source spans; never expand a manual choice globally."""
     _validate_fields(fields)
     safe_nonce = _validated_nonce(nonce)
+    selected_token_mode = TokenMode(token_mode)
     selected_by_field: dict[str, list[tuple[int, int, Entity]]] = {}
     for field_name, original in fields.items():
         selected: list[tuple[int, int, Entity]] = []
@@ -88,26 +105,40 @@ def redact_spans(
         for _start, _end, entity in selected_by_field[field_name]
     }
     for entity in sorted(unique_entities.values(), key=lambda item: (-len(item.value), item.type.value, item.value)):
-        key = (entity.value, entity.type)
-        type_counts[entity.type.value] += 1
-        token = f"__PII_{safe_nonce}_{entity.type.value}_{type_counts[entity.type.value]:04d}__"
-        entity_to_token[key] = token
-        mapping[token] = entity.value
         used_entities.append(entity)
+        if selected_token_mode is TokenMode.TYPED:
+            key = (entity.value, entity.type)
+            type_counts[entity.type.value] += 1
+            token = f"__PII_{safe_nonce}_{entity.type.value}_{type_counts[entity.type.value]:04d}__"
+            entity_to_token[key] = token
+            mapping[token] = entity.value
 
     sanitized: dict[str, str] = {}
     redactions: list[RedactionSpan] = []
+    opaque_index = 0
     for field_name, original in fields.items():
         pieces: list[str] = []
         cursor = 0
         for start, end, entity in selected_by_field[field_name]:
-            token = entity_to_token[(entity.value, entity.type)]
+            if selected_token_mode is TokenMode.TYPED:
+                token = entity_to_token[(entity.value, entity.type)]
+            else:
+                opaque_index += 1
+                token = f"__PII_{safe_nonce}_{opaque_index:04d}__"
+                mapping[token] = entity.value
             pieces.extend((original[cursor:start], token))
             redactions.append(RedactionSpan(field_name, start, end, entity.type, token))
             cursor = end
         pieces.append(original[cursor:])
         sanitized[field_name] = "".join(pieces)
-    return RedactionResult(sanitized, mapping, tuple(used_entities), tuple(redactions), safe_nonce)
+    return RedactionResult(
+        sanitized,
+        mapping,
+        tuple(used_entities),
+        tuple(redactions),
+        safe_nonce,
+        selected_token_mode,
+    )
 
 
 def audit_cloud_tokens(
