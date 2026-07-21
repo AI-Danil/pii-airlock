@@ -41,7 +41,22 @@
         <span class="step">02 · LOCAL RESULT</span>
         <h2>Detected entity types</h2>
         <div id="entities" class="output muted">Not analyzed.</div>
+        <div id="securityWarnings" class="warnings" aria-live="polite"></div>
         <div id="redactionPreview" class="redaction-preview muted" aria-live="polite"></div>
+        <div id="reviewTools" class="review-tools" hidden>
+          <label>Manual type
+            <select id="reviewType">
+              <option>PERSON</option><option>PHONE</option><option>EMAIL</option><option>ADDRESS</option>
+              <option>ORG</option><option>CONTRACT_ID</option><option>PASSPORT</option><option>TAX_ID</option>
+              <option>CARD</option><option>API_KEY</option><option>OTHER_SECRET</option>
+            </select>
+          </label>
+          <button id="confirmSpans">Confirm current spans</button>
+          <button id="addSelection" class="secondary" disabled>Add selected text</button>
+          <button id="retagSelection" class="secondary" disabled>Change selected type</button>
+          <button id="removeSelection" class="danger" disabled>Remove selected redaction</button>
+          <p id="reviewHint">Select text to add a span, or click a highlighted span to edit it.</p>
+        </div>
       </article>
       <article class="card">
         <span class="step">03 · OUTBOUND CONTENT</span>

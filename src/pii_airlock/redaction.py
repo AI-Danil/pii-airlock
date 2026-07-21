@@ -2,23 +2,16 @@ from __future__ import annotations
 
 import re
 import secrets
+from collections import Counter
 
-from .models import DetectionError, Entity, RedactionResult, RedactionSpan
+from .models import DetectionError, Entity, EntityType, RedactionResult, RedactionSpan, ReviewError, UnknownTokenError
 
 RESERVED_TOKEN_PREFIX = "__PII_"
 TOKEN_PATTERN = re.compile(r"__PII_[A-F0-9]{8,32}_[A-Z_]+_\d{4}__")
 
 
 def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str | None = None) -> RedactionResult:
-    if not fields or not any(value.strip() for value in fields.values()):
-        raise DetectionError("At least one non-empty text field is required.", code="empty_input")
-    for text in fields.values():
-        if RESERVED_TOKEN_PREFIX.casefold() in text.casefold():
-            raise DetectionError("Input already contains a reserved PII token.", code="reserved_token_in_input")
-
-    safe_nonce = (nonce or secrets.token_hex(16)).upper()
-    if not re.fullmatch(r"[A-F0-9]{8,32}", safe_nonce):
-        raise ValueError("Nonce must be 8 to 32 uppercase hexadecimal characters.")
+    _validate_fields(fields)
 
     accepted: list[Entity] = []
     seen_values: set[str] = set()
@@ -56,17 +49,50 @@ def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str 
             used_values.add(entity.value)
         selected_by_field[field_name] = sorted(selected, key=lambda item: (item[0], item[1]))
 
+    selections = {
+        field: [(start, end, entity.type) for start, end, entity in spans] for field, spans in selected_by_field.items()
+    }
+    return redact_spans(fields, selections, nonce=nonce)
+
+
+def redact_spans(
+    fields: dict[str, str],
+    spans_by_field: dict[str, list[tuple[int, int, EntityType]]],
+    *,
+    nonce: str | None = None,
+) -> RedactionResult:
+    """Redact only the exact reviewed source spans; never expand a manual choice globally."""
+    _validate_fields(fields)
+    safe_nonce = _validated_nonce(nonce)
+    selected_by_field: dict[str, list[tuple[int, int, Entity]]] = {}
+    for field_name, original in fields.items():
+        selected: list[tuple[int, int, Entity]] = []
+        for start, end, entity_type in sorted(spans_by_field.get(field_name, []), key=lambda item: (item[0], item[1])):
+            if start < 0 or end <= start or end > len(original):
+                raise ReviewError(f"Invalid source span in {field_name}.")
+            if any(start < chosen_end and end > chosen_start for chosen_start, chosen_end, _ in selected):
+                raise ReviewError(f"Overlapping source spans in {field_name}.")
+            selected.append((start, end, Entity(original[start:end], entity_type)))
+        selected_by_field[field_name] = selected
+    unknown_fields = set(spans_by_field) - set(fields)
+    if unknown_fields:
+        raise ReviewError("Review contains an unknown field.")
+
     mapping: dict[str, str] = {}
-    value_to_token: dict[str, str] = {}
-    type_counts: dict[str, int] = {}
+    entity_to_token: dict[tuple[str, EntityType], str] = {}
+    type_counts: Counter[str] = Counter()
     used_entities: list[Entity] = []
-    for entity in accepted:
-        if entity.value not in used_values:
-            continue
-        type_counts[entity.type.value] = type_counts.get(entity.type.value, 0) + 1
+    unique_entities = {
+        (entity.value, entity.type): entity
+        for field_name in fields
+        for _start, _end, entity in selected_by_field[field_name]
+    }
+    for entity in sorted(unique_entities.values(), key=lambda item: (-len(item.value), item.type.value, item.value)):
+        key = (entity.value, entity.type)
+        type_counts[entity.type.value] += 1
         token = f"__PII_{safe_nonce}_{entity.type.value}_{type_counts[entity.type.value]:04d}__"
+        entity_to_token[key] = token
         mapping[token] = entity.value
-        value_to_token[entity.value] = token
         used_entities.append(entity)
 
     sanitized: dict[str, str] = {}
@@ -75,30 +101,21 @@ def redact_fields(fields: dict[str, str], entities: list[Entity], *, nonce: str 
         pieces: list[str] = []
         cursor = 0
         for start, end, entity in selected_by_field[field_name]:
-            token = value_to_token[entity.value]
+            token = entity_to_token[(entity.value, entity.type)]
             pieces.extend((original[cursor:start], token))
-            redactions.append(
-                RedactionSpan(
-                    field=field_name,
-                    start=start,
-                    end=end,
-                    type=entity.type,
-                    token=token,
-                )
-            )
+            redactions.append(RedactionSpan(field_name, start, end, entity.type, token))
             cursor = end
         pieces.append(original[cursor:])
         sanitized[field_name] = "".join(pieces)
-    return RedactionResult(
-        sanitized_fields=sanitized,
-        mapping=mapping,
-        entities=tuple(used_entities),
-        redactions=tuple(redactions),
-        nonce=safe_nonce,
-    )
+    return RedactionResult(sanitized, mapping, tuple(used_entities), tuple(redactions), safe_nonce)
 
 
-def restore_text(text: str, mapping: dict[str, str]) -> str:
+def audit_cloud_tokens(
+    text: str,
+    mapping: dict[str, str],
+    *,
+    max_occurrences: dict[str, int] | None = None,
+) -> dict[str, object]:
     exact_tokens = set(TOKEN_PATTERN.findall(text))
     unknown = sorted(token for token in exact_tokens if token not in mapping)
     without_known_tokens = text
@@ -106,10 +123,41 @@ def restore_text(text: str, mapping: dict[str, str]) -> str:
         without_known_tokens = without_known_tokens.replace(token, "")
     reserved_fragment_remains = RESERVED_TOKEN_PREFIX.casefold() in without_known_tokens.casefold()
     if unknown or reserved_fragment_remains:
-        from .models import UnknownTokenError
-
         raise UnknownTokenError("Cloud response contains unknown, altered or forged PII token(s).")
+    observed = {token: text.count(token) for token in mapping}
+    if max_occurrences is not None:
+        overused = [token for token, count in observed.items() if count > max_occurrences.get(token, 0)]
+        if overused:
+            raise UnknownTokenError("Cloud response duplicated a PII token beyond its outbound occurrence limit.")
+    return {
+        "observed_token_counts": observed,
+        "omitted_tokens": sorted(token for token, count in observed.items() if count == 0),
+    }
+
+
+def restore_text(
+    text: str,
+    mapping: dict[str, str],
+    *,
+    max_occurrences: dict[str, int] | None = None,
+) -> str:
+    audit_cloud_tokens(text, mapping, max_occurrences=max_occurrences)
     restored = text
     for token, value in mapping.items():
         restored = restored.replace(token, value)
     return restored
+
+
+def _validate_fields(fields: dict[str, str]) -> None:
+    if not fields or not any(value.strip() for value in fields.values()):
+        raise DetectionError("At least one non-empty text field is required.", code="empty_input")
+    for text in fields.values():
+        if RESERVED_TOKEN_PREFIX.casefold() in text.casefold():
+            raise DetectionError("Input already contains a reserved PII token.", code="reserved_token_in_input")
+
+
+def _validated_nonce(nonce: str | None) -> str:
+    safe_nonce = (nonce or secrets.token_hex(16)).upper()
+    if not re.fullmatch(r"[A-F0-9]{8,32}", safe_nonce):
+        raise ValueError("Nonce must be 8 to 32 uppercase hexadecimal characters.")
+    return safe_nonce

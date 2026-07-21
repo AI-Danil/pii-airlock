@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .clients import CloudClient, OpenAIResponsesClient
 from .detectors import Detector, HybridDetector, LMStudioDetector
 from .gate import assert_no_deterministic_leaks, entity_counts
-from .models import AirlockError, GateBlocked, Operation, OperationNotFound, StoreCapacityError
-from .redaction import redact_fields, restore_text
+from .models import (
+    AirlockError,
+    EntityType,
+    GateBlocked,
+    Operation,
+    OperationNotFound,
+    ReviewError,
+    ServiceBusyError,
+    StoreCapacityError,
+)
+from .redaction import audit_cloud_tokens, redact_fields, redact_spans, restore_text
+from .trust import inspect_untrusted_content
 
 
 @dataclass
@@ -66,6 +79,16 @@ class OperationStore:
             self._condition.notify()
             return operation
 
+    def update(self, operation_id: str, updater: Callable[[Operation], None]) -> Operation:
+        with self._condition:
+            self._purge_locked(time.monotonic())
+            operation = self._items.get(operation_id)
+            if operation is None:
+                raise OperationNotFound("Operation not found, expired, or already claimed.")
+            updater(operation)
+            self._condition.notify()
+            return operation
+
     def delete(self, operation_id: str) -> bool:
         with self._condition:
             operation = self._items.pop(operation_id, None)
@@ -114,19 +137,38 @@ class AirlockService:
         detector: Detector | None = None,
         cloud_client: CloudClient | None = None,
         store: OperationStore | None = None,
+        max_concurrent_analyses: int = 4,
     ) -> None:
+        if max_concurrent_analyses <= 0:
+            raise ValueError("Analysis concurrency must be positive.")
         self.detector = detector or HybridDetector(LMStudioDetector())
         self.cloud_client = cloud_client if cloud_client is not None else _cloud_from_env()
         self.store = store or OperationStore()
+        self._analysis_slots = threading.BoundedSemaphore(max_concurrent_analyses)
 
     @property
     def cloud_enabled(self) -> bool:
         return self.cloud_client is not None
 
     def create_operation(self, *, text: str, task: str, model: str) -> Operation:
-        combined = f"TASK\n{task}\nDOCUMENT\n{text}"
-        entities = self.detector.detect(combined, model=model)
-        redaction = redact_fields({"task": task, "text": text}, entities)
+        if not self._analysis_slots.acquire(blocking=False):
+            raise ServiceBusyError("All local analysis slots are busy; retry later.")
+        fields = {"task": task, "text": text}
+        try:
+            combined = f"TASK\n{task}\nDOCUMENT\n{text}"
+            detect_outcome = getattr(self.detector, "detect_outcome", None)
+            if callable(detect_outcome):
+                outcome = detect_outcome(combined, model=model)
+                entities = list(outcome.entities)
+                detector_warnings = list(outcome.warnings)
+                requires_manual_review = outcome.requires_manual_review
+            else:
+                entities = self.detector.detect(combined, model=model)
+                detector_warnings = []
+                requires_manual_review = False
+            redaction = redact_fields(fields, entities)
+        finally:
+            self._analysis_slots.release()
         now = time.monotonic()
         operation = Operation(
             id=uuid.uuid4().hex,
@@ -136,7 +178,10 @@ class AirlockService:
             entity_counts=entity_counts(redaction),
             created_at=now,
             expires_at=now + self.store.ttl_seconds,
+            source_hashes={name: _source_hash(value) for name, value in fields.items()},
             redactions=redaction.redactions,
+            security_warnings=inspect_untrusted_content(fields),
+            detector_warnings=detector_warnings,
         )
         try:
             assert_no_deterministic_leaks(redaction)
@@ -146,12 +191,83 @@ class AirlockService:
             # A blocked operation cannot be completed. Retain the sanitized
             # preview, but destroy the only structure containing raw values.
             operation.mapping = {}
+        if requires_manual_review:
+            operation.status = "BLOCKED"
+            operation.blocked_reasons.append(
+                "The semantic detector failed; review the rule-based spans before cloud send."
+            )
+            operation.mapping.clear()
         try:
             self.store.put(operation)
         except Exception:
             operation.mapping.clear()
             raise
         return operation
+
+    def review_redactions(
+        self,
+        operation_id: str,
+        *,
+        fields: dict[str, str],
+        edits: list[dict[str, object]],
+    ) -> Operation:
+        def apply_review(operation: Operation) -> None:
+            if set(fields) != {"task", "text"}:
+                raise ReviewError("Review must contain the original task and text fields.")
+            for name, value in fields.items():
+                expected = operation.source_hashes.get(name, "")
+                if not expected or not hmac.compare_digest(_source_hash(value), expected):
+                    raise ReviewError("Review source does not match the analyzed operation.")
+
+            spans: dict[str, list[tuple[int, int, EntityType]]] = {"task": [], "text": []}
+            for item in operation.redactions:
+                spans[item.field].append((item.start, item.end, item.type))
+            for edit in edits:
+                action = str(edit.get("action", ""))
+                field_name = str(edit.get("field", ""))
+                start = int(edit.get("start", -1))
+                end = int(edit.get("end", -1))
+                if field_name not in fields or start < 0 or end <= start or end > len(fields[field_name]):
+                    raise ReviewError("Review contains an invalid source span.")
+                matches = [
+                    index
+                    for index, (old_start, old_end, _old_type) in enumerate(spans[field_name])
+                    if old_start == start and old_end == end
+                ]
+                if action == "remove":
+                    if len(matches) != 1:
+                        raise ReviewError("The redaction selected for removal was not found.")
+                    spans[field_name].pop(matches[0])
+                elif action == "add":
+                    if matches:
+                        raise ReviewError("The selected span is already redacted.")
+                    spans[field_name].append((start, end, _entity_type(edit)))
+                elif action == "retag":
+                    if len(matches) != 1:
+                        raise ReviewError("The redaction selected for retagging was not found.")
+                    spans[field_name][matches[0]] = (start, end, _entity_type(edit))
+                else:
+                    raise ReviewError("Unknown redaction review action.")
+
+            replacement = redact_spans(fields, spans)
+            old_mapping = operation.mapping
+            operation.sanitized_fields = replacement.sanitized_fields
+            operation.mapping = replacement.mapping
+            operation.redactions = replacement.redactions
+            operation.entity_counts = entity_counts(replacement)
+            operation.review_revision += 1
+            operation.status = "READY_FOR_REVIEW"
+            operation.blocked_reasons = []
+            try:
+                assert_no_deterministic_leaks(replacement)
+            except GateBlocked as exc:
+                operation.status = "BLOCKED"
+                operation.blocked_reasons = exc.reasons
+                operation.mapping = {}
+            finally:
+                old_mapping.clear()
+
+        return self.store.update(operation_id, apply_review)
 
     def complete_operation(self, operation_id: str) -> dict[str, object]:
         operation = self.store.claim_for_completion(operation_id)
@@ -165,13 +281,23 @@ class AirlockService:
                 instructions=outbound["instructions"],
                 input_text=outbound["input_text"],
             )
-            restored = restore_text(cloud_text, operation.mapping)
-            return {**operation.public_dict(), "cloud_status": "COMPLETED", "restored_text": restored}
+            token_limits = operation.token_limits()
+            token_audit = audit_cloud_tokens(cloud_text, operation.mapping, max_occurrences=token_limits)
+            restored = restore_text(cloud_text, operation.mapping, max_occurrences=token_limits)
+            return {
+                **operation.public_dict(),
+                "cloud_status": "COMPLETED",
+                "restored_text": restored,
+                "token_audit": token_audit,
+            }
         finally:
             operation.mapping.clear()
 
     def complete_stateless(self, *, instructions: str, input_text: str, model: str) -> dict[str, object]:
         operation = self.create_operation(text=input_text, task=instructions, model=model)
+        if operation.security_warnings:
+            self.store.delete(operation.id)
+            raise GateBlocked(["Stateless mode rejected possible prompt injection or external-action instructions."])
         return self.complete_operation(operation.id)
 
     def close(self) -> None:
@@ -190,3 +316,14 @@ def _cloud_from_env() -> CloudClient | None:
         model=model,
         base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     )
+
+
+def _source_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _entity_type(edit: dict[str, object]) -> EntityType:
+    try:
+        return EntityType(str(edit.get("type", "")))
+    except ValueError as exc:
+        raise ReviewError("Review action requires a supported entity type.") from exc

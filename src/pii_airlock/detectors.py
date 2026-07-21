@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from ipaddress import ip_address
 from typing import Protocol
@@ -18,11 +19,21 @@ class Detector(Protocol):
     def detect(self, text: str, *, model: str) -> list[Entity]: ...
 
 
+@dataclass(frozen=True)
+class DetectionOutcome:
+    entities: tuple[Entity, ...]
+    warnings: tuple[str, ...] = ()
+    requires_manual_review: bool = False
+
+
 _RULES: tuple[tuple[EntityType, re.Pattern[str]], ...] = (
-    (EntityType.EMAIL, re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+", re.I)),
-    (EntityType.API_KEY, re.compile(r"\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b")),
-    (EntityType.CARD, re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")),
-    (EntityType.PHONE, re.compile(r"(?<!\d)(?:\+?\d[\d ()-]{8,}\d)(?!\d)")),
+    (
+        EntityType.EMAIL,
+        re.compile(r"(?<![\w.+-])[\w.+-]+\s*@\s*[\w-]+(?:\s*\.\s*[\w-]+)+", re.I),
+    ),
+    (EntityType.API_KEY, re.compile(r"\b(?:sk-[\w-]{12,}|gh[pousr]_[\w]{20,}|AKIA[0-9A-Z]{16})\b")),
+    (EntityType.CARD, re.compile(r"(?<!\d)\d(?:[\s-]?\d){12,18}(?!\d)")),
+    (EntityType.PHONE, re.compile(r"(?<!\d)(?:\+?\d[\d\s().-]{8,}\d)(?!\d)")),
 )
 
 _CONTEXT_RULES: tuple[tuple[EntityType, re.Pattern[str]], ...] = (
@@ -56,18 +67,75 @@ class RuleDetector:
 
     def detect(self, text: str, *, model: str = "rules") -> list[Entity]:
         found: list[Entity] = []
+        canonical = _canonicalize(text)
         for entity_type, pattern in _RULES:
-            for match in pattern.finditer(text):
-                value = match.group(0).strip()
+            for match in pattern.finditer(canonical.text):
+                value = canonical.source_slice(text, *match.span(0))
                 if entity_type is EntityType.CARD and not _looks_like_card(value):
                     continue
                 if entity_type is EntityType.PHONE and len(re.sub(r"\D", "", value)) < 10:
                     continue
                 found.append(Entity(value=value, type=entity_type))
         for entity_type, pattern in _CONTEXT_RULES:
-            for match in pattern.finditer(text):
-                found.append(Entity(value=match.group(1), type=entity_type))
+            for match in pattern.finditer(canonical.text):
+                found.append(Entity(value=canonical.source_slice(text, *match.span(1)), type=entity_type))
         return _deduplicate(found)
+
+
+@dataclass(frozen=True)
+class _CanonicalText:
+    text: str
+    ranges: tuple[tuple[int, int], ...]
+
+    def source_slice(self, source: str, start: int, end: int) -> str:
+        if start < 0 or end <= start or end > len(self.ranges):
+            return ""
+        source_start = min(item[0] for item in self.ranges[start:end])
+        source_end = max(item[1] for item in self.ranges[start:end])
+        return source[source_start:source_end]
+
+
+def _canonicalize(text: str) -> _CanonicalText:
+    units: list[tuple[str, int, int]] = []
+    for index, char in enumerate(text):
+        if unicodedata.category(char) == "Cf":
+            continue
+        normalized = unicodedata.normalize("NFKC", char)
+        units.extend((item, index, index + 1) for item in normalized)
+    units = _replace_markers(
+        units,
+        re.compile(r"(?:\s*\[\s*at\s*\]\s*|\s*\(\s*at\s*\)\s*)", re.I),
+        "@",
+    )
+    units = _replace_markers(
+        units,
+        re.compile(r"(?:\s*\[\s*dot\s*\]\s*|\s*\(\s*dot\s*\)\s*)", re.I),
+        ".",
+    )
+    return _CanonicalText("".join(item[0] for item in units), tuple((item[1], item[2]) for item in units))
+
+
+def _replace_markers(
+    units: list[tuple[str, int, int]],
+    pattern: re.Pattern[str],
+    replacement: str,
+) -> list[tuple[str, int, int]]:
+    text = "".join(item[0] for item in units)
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return units
+    rebuilt: list[tuple[str, int, int]] = []
+    cursor = 0
+    for match in matches:
+        if match.start() < cursor:
+            continue
+        rebuilt.extend(units[cursor : match.start()])
+        covered = units[match.start() : match.end()]
+        if covered:
+            rebuilt.append((replacement, min(item[1] for item in covered), max(item[2] for item in covered)))
+        cursor = match.end()
+    rebuilt.extend(units[cursor:])
+    return rebuilt
 
 
 @dataclass
@@ -173,9 +241,21 @@ class HybridDetector:
     rules: RuleDetector = RuleDetector()
 
     def detect(self, text: str, *, model: str) -> list[Entity]:
-        semantic_entities = self.semantic.detect(text, model=model)
         rule_entities = self.rules.detect(text)
+        semantic_entities = self.semantic.detect(text, model=model)
         return _deduplicate([*semantic_entities, *rule_entities])
+
+    def detect_outcome(self, text: str, *, model: str) -> DetectionOutcome:
+        rule_entities = self.rules.detect(text)
+        try:
+            semantic_entities = self.semantic.detect(text, model=model)
+        except DetectionError as exc:
+            return DetectionOutcome(
+                entities=tuple(rule_entities),
+                warnings=(f"semantic_detector_{exc.code}",),
+                requires_manual_review=True,
+            )
+        return DetectionOutcome(tuple(_deduplicate([*semantic_entities, *rule_entities])))
 
 
 def _post_json(url: str, payload: dict[str, object], timeout: float) -> dict[str, object]:

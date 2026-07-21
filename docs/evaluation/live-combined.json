@@ -1,343 +1,1423 @@
 {
   "generated_from": "fixtures/synthetic_cases.jsonl",
-  "dataset_cases": 30,
+  "dataset_cases": 52,
   "scope": "Synthetic fixtures only. The fixture oracle is unavailable for arbitrary documents.",
   "models": [
     {
       "model": "qwen/qwen3.5-9b",
-      "cases": 30,
-      "runtime_gate_passes": 23,
-      "fixture_oracle_passes": 23,
+      "cases": 52,
+      "runtime_gate_passes": 32,
+      "fixture_oracle_passes": 32,
       "known_control_leak_cases_after_runtime_gate": 0,
       "known_control_values_in_oracle_passes": 0,
-      "entity_recall": 0.7037,
-      "extra_replacement_values": 5,
-      "detection_failures": 4,
+      "entity_recall": 0.8472,
+      "entity_precision": 0.8243,
+      "extra_replacement_values": 9,
+      "detection_failures": 11,
       "detection_failures_by_code": {
-        "non_exact_substring": 4
+        "non_exact_substring": 11
       },
-      "runtime_gate_blocks": 3,
-      "deterministic_restoration_checks": 23,
-      "latency_median_seconds": 2.617,
-      "latency_max_seconds": 16.903,
+      "runtime_gate_blocks": 9,
+      "deterministic_restoration_checks": 43,
+      "clean_cases": 6,
+      "clean_cases_without_detections": 6,
+      "adversarial_cases": 20,
+      "fixture_assisted_review_passes": 42,
+      "per_type": {
+        "PERSON": {
+          "expected": 16,
+          "predicted": 12,
+          "true_positives": 12,
+          "false_positives": 0,
+          "false_negatives": 4,
+          "precision": 1.0,
+          "recall": 0.75
+        },
+        "PHONE": {
+          "expected": 8,
+          "predicted": 12,
+          "true_positives": 8,
+          "false_positives": 4,
+          "false_negatives": 0,
+          "precision": 0.6667,
+          "recall": 1.0
+        },
+        "EMAIL": {
+          "expected": 12,
+          "predicted": 12,
+          "true_positives": 12,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ADDRESS": {
+          "expected": 6,
+          "predicted": 4,
+          "true_positives": 4,
+          "false_positives": 0,
+          "false_negatives": 2,
+          "precision": 1.0,
+          "recall": 0.6667
+        },
+        "ORG": {
+          "expected": 6,
+          "predicted": 5,
+          "true_positives": 3,
+          "false_positives": 2,
+          "false_negatives": 3,
+          "precision": 0.6,
+          "recall": 0.5
+        },
+        "CONTRACT_ID": {
+          "expected": 7,
+          "predicted": 7,
+          "true_positives": 6,
+          "false_positives": 1,
+          "false_negatives": 1,
+          "precision": 0.8571,
+          "recall": 0.8571
+        },
+        "PASSPORT": {
+          "expected": 2,
+          "predicted": 2,
+          "true_positives": 2,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "TAX_ID": {
+          "expected": 3,
+          "predicted": 3,
+          "true_positives": 3,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "CARD": {
+          "expected": 4,
+          "predicted": 7,
+          "true_positives": 4,
+          "false_positives": 3,
+          "false_negatives": 0,
+          "precision": 0.5714,
+          "recall": 1.0
+        },
+        "API_KEY": {
+          "expected": 6,
+          "predicted": 9,
+          "true_positives": 6,
+          "false_positives": 3,
+          "false_negatives": 0,
+          "precision": 0.6667,
+          "recall": 1.0
+        },
+        "OTHER_SECRET": {
+          "expected": 2,
+          "predicted": 1,
+          "true_positives": 1,
+          "false_positives": 0,
+          "false_negatives": 1,
+          "precision": 1.0,
+          "recall": 0.5
+        }
+      },
+      "per_language": {
+        "en": {
+          "expected": 36,
+          "true_positives": 31,
+          "recall": 0.8611
+        },
+        "ru": {
+          "expected": 36,
+          "true_positives": 30,
+          "recall": 0.8333
+        }
+      },
+      "latency_median_seconds": 11.053,
+      "latency_max_seconds": 20.86,
       "case_results": [
         {
           "id": "ru-01",
-          "status": "blocked:non_exact_substring",
-          "seconds": 16.903
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 2.066
         },
         {
           "id": "ru-02",
-          "status": "blocked:non_exact_substring",
-          "seconds": 3.258
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 14.574
         },
         {
           "id": "ru-03",
+          "language": "ru",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 3.052
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 14.525
         },
         {
           "id": "ru-04",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.509
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 12.874
         },
         {
           "id": "ru-05",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.239
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 11.091
         },
         {
           "id": "ru-06",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.207
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 11.799
         },
         {
           "id": "ru-07",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.567
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 14.36
         },
         {
           "id": "ru-08",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.439
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 11.614
         },
         {
           "id": "ru-09",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.705
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 14.041
         },
         {
           "id": "ru-10",
-          "status": "blocked:non_exact_substring",
-          "seconds": 3.718
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 3,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 1,
+          "seconds": 20.86
         },
         {
           "id": "ru-11",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.138
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 14.847
         },
         {
           "id": "ru-12",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.88
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 20.684
         },
         {
           "id": "ru-13",
-          "status": "blocked:non_exact_substring",
-          "seconds": 2.694
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 12.203
         },
         {
           "id": "ru-14",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.215
+          "expected_entities": 1,
+          "true_positives": 0,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.913
         },
         {
           "id": "ru-15",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.758
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 20.721
         },
         {
           "id": "en-01",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.415
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 11.305
         },
         {
           "id": "en-02",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.883
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 14.924
         },
         {
           "id": "en-03",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 2.048
+          "expected_entities": 2,
+          "true_positives": 0,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 9.182
         },
         {
           "id": "en-04",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.997
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.274
         },
         {
           "id": "en-05",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.201
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.776
         },
         {
           "id": "en-06",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.179
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.974
         },
         {
           "id": "en-07",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.628
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 13.919
         },
         {
           "id": "en-08",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.322
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 11.333
         },
         {
           "id": "en-09",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.414
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 11.533
         },
         {
           "id": "en-10",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.615
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 19.753
         },
         {
           "id": "en-11",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 2.932
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 13.905
         },
         {
           "id": "en-12",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.184
+          "expected_entities": 3,
+          "true_positives": 2,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 16.806
         },
         {
           "id": "en-13",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 2.607
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 11.668
         },
         {
           "id": "en-14",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.276
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 7.765
         },
         {
           "id": "en-15",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.617
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 17.097
+        },
+        {
+          "id": "ru-16",
+          "language": "ru",
+          "category": "unicode",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 8.092
+        },
+        {
+          "id": "ru-17",
+          "language": "ru",
+          "category": "obfuscated",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.21
+        },
+        {
+          "id": "ru-18",
+          "language": "ru",
+          "category": "line-break",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 11.002
+        },
+        {
+          "id": "ru-19",
+          "language": "ru",
+          "category": "prompt-injection",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 9.425
+        },
+        {
+          "id": "ru-20",
+          "language": "ru",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 6.881
+        },
+        {
+          "id": "ru-21",
+          "language": "ru",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 8.902
+        },
+        {
+          "id": "ru-22",
+          "language": "ru",
+          "category": "line-break",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 10.381
+        },
+        {
+          "id": "ru-23",
+          "language": "ru",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 8.157
+        },
+        {
+          "id": "ru-24",
+          "language": "ru",
+          "category": "standard",
+          "status": "passed",
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 12.437
+        },
+        {
+          "id": "ru-25",
+          "language": "ru",
+          "category": "unicode",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.156
+        },
+        {
+          "id": "ru-26",
+          "language": "ru",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 8.308
+        },
+        {
+          "id": "en-16",
+          "language": "en",
+          "category": "unicode",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 6.367
+        },
+        {
+          "id": "en-17",
+          "language": "en",
+          "category": "obfuscated",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 10.101
+        },
+        {
+          "id": "en-18",
+          "language": "en",
+          "category": "line-break",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 11.015
+        },
+        {
+          "id": "en-19",
+          "language": "en",
+          "category": "prompt-injection",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 9.825
+        },
+        {
+          "id": "en-20",
+          "language": "en",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 7.515
+        },
+        {
+          "id": "en-21",
+          "language": "en",
+          "category": "unicode",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 8.927
+        },
+        {
+          "id": "en-22",
+          "language": "en",
+          "category": "line-break",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 14.793
+        },
+        {
+          "id": "en-23",
+          "language": "en",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 5.803
+        },
+        {
+          "id": "en-24",
+          "language": "en",
+          "category": "standard",
+          "status": "passed",
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 10.412
+        },
+        {
+          "id": "en-25",
+          "language": "en",
+          "category": "unicode",
+          "status": "blocked:semantic_detector_non_exact_substring",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 11.166
+        },
+        {
+          "id": "en-26",
+          "language": "en",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 7.867
         }
       ]
     },
     {
       "model": "google/gemma-4-e4b",
-      "cases": 30,
-      "runtime_gate_passes": 26,
-      "fixture_oracle_passes": 22,
-      "known_control_leak_cases_after_runtime_gate": 4,
+      "cases": 52,
+      "runtime_gate_passes": 42,
+      "fixture_oracle_passes": 33,
+      "known_control_leak_cases_after_runtime_gate": 9,
       "known_control_values_in_oracle_passes": 0,
-      "entity_recall": 0.7593,
+      "entity_recall": 0.8056,
+      "entity_precision": 0.9062,
       "extra_replacement_values": 4,
       "detection_failures": 0,
       "detection_failures_by_code": {},
-      "runtime_gate_blocks": 4,
-      "deterministic_restoration_checks": 26,
-      "latency_median_seconds": 1.355,
-      "latency_max_seconds": 18.933,
+      "runtime_gate_blocks": 10,
+      "deterministic_restoration_checks": 42,
+      "clean_cases": 6,
+      "clean_cases_without_detections": 6,
+      "adversarial_cases": 20,
+      "fixture_assisted_review_passes": 42,
+      "per_type": {
+        "PERSON": {
+          "expected": 16,
+          "predicted": 7,
+          "true_positives": 7,
+          "false_positives": 0,
+          "false_negatives": 9,
+          "precision": 1.0,
+          "recall": 0.4375
+        },
+        "PHONE": {
+          "expected": 8,
+          "predicted": 12,
+          "true_positives": 8,
+          "false_positives": 4,
+          "false_negatives": 0,
+          "precision": 0.6667,
+          "recall": 1.0
+        },
+        "EMAIL": {
+          "expected": 12,
+          "predicted": 13,
+          "true_positives": 12,
+          "false_positives": 1,
+          "false_negatives": 0,
+          "precision": 0.9231,
+          "recall": 1.0
+        },
+        "ADDRESS": {
+          "expected": 6,
+          "predicted": 6,
+          "true_positives": 6,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "ORG": {
+          "expected": 6,
+          "predicted": 4,
+          "true_positives": 3,
+          "false_positives": 1,
+          "false_negatives": 3,
+          "precision": 0.75,
+          "recall": 0.5
+        },
+        "CONTRACT_ID": {
+          "expected": 7,
+          "predicted": 7,
+          "true_positives": 7,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "PASSPORT": {
+          "expected": 2,
+          "predicted": 2,
+          "true_positives": 2,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "TAX_ID": {
+          "expected": 3,
+          "predicted": 1,
+          "true_positives": 1,
+          "false_positives": 0,
+          "false_negatives": 2,
+          "precision": 1.0,
+          "recall": 0.3333
+        },
+        "CARD": {
+          "expected": 4,
+          "predicted": 4,
+          "true_positives": 4,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "API_KEY": {
+          "expected": 6,
+          "predicted": 6,
+          "true_positives": 6,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "OTHER_SECRET": {
+          "expected": 2,
+          "predicted": 2,
+          "true_positives": 2,
+          "false_positives": 0,
+          "false_negatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        }
+      },
+      "per_language": {
+        "en": {
+          "expected": 36,
+          "true_positives": 28,
+          "recall": 0.7778
+        },
+        "ru": {
+          "expected": 36,
+          "true_positives": 30,
+          "recall": 0.8333
+        }
+      },
+      "latency_median_seconds": 2.799,
+      "latency_max_seconds": 14.254,
       "case_results": [
         {
           "id": "ru-01",
-          "status": "passed",
-          "seconds": 18.933
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:fixture_oracle",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 1,
+          "seconds": 1.215
         },
         {
           "id": "ru-02",
-          "status": "passed",
-          "seconds": 1.836
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:fixture_oracle",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 1.237
         },
         {
           "id": "ru-03",
+          "language": "ru",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 0.468
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 0.367
         },
         {
           "id": "ru-04",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.674
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 1.449
         },
         {
           "id": "ru-05",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.408
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 6.035
         },
         {
           "id": "ru-06",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.459
+          "expected_entities": 1,
+          "true_positives": 0,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.625
         },
         {
           "id": "ru-07",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.593
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 3.517
         },
         {
           "id": "ru-08",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.428
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 1.303
         },
         {
           "id": "ru-09",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.956
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 6.453
         },
         {
           "id": "ru-10",
-          "status": "passed",
-          "seconds": 2.654
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:fixture_oracle",
+          "expected_entities": 3,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 1,
+          "seconds": 10.801
         },
         {
           "id": "ru-11",
+          "language": "ru",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 1.634
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 6.698
         },
         {
           "id": "ru-12",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.269
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 14.254
         },
         {
           "id": "ru-13",
-          "status": "passed",
-          "seconds": 1.339
+          "language": "ru",
+          "category": "standard",
+          "status": "blocked:fixture_oracle",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 5.011
         },
         {
           "id": "ru-14",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.465
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.233
         },
         {
           "id": "ru-15",
+          "language": "ru",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.187
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 12.959
         },
         {
           "id": "en-01",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:fixture_oracle",
-          "seconds": 1.371
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 5.532
         },
         {
           "id": "en-02",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:fixture_oracle",
-          "seconds": 0.467
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 1.909
         },
         {
           "id": "en-03",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 1.124
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 4.513
         },
         {
           "id": "en-04",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.261
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 5.369
         },
         {
           "id": "en-05",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.434
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 5.8
         },
         {
           "id": "en-06",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.443
+          "expected_entities": 1,
+          "true_positives": 0,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.299
         },
         {
           "id": "en-07",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.644
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.806
         },
         {
           "id": "en-08",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.446
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 1.314
         },
         {
           "id": "en-09",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.643
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 6.454
         },
         {
           "id": "en-10",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 3.162
+          "expected_entities": 3,
+          "true_positives": 3,
+          "predicted_entities": 3,
+          "known_control_values_remaining": 0,
+          "seconds": 13.468
         },
         {
           "id": "en-11",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:GateBlocked",
-          "seconds": 1.271
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 4.823
         },
         {
           "id": "en-12",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:fixture_oracle",
-          "seconds": 1.229
+          "expected_entities": 3,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 2,
+          "seconds": 5.232
         },
         {
           "id": "en-13",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 1.829
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 7.467
         },
         {
           "id": "en-14",
+          "language": "en",
+          "category": "standard",
           "status": "passed",
-          "seconds": 0.452
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.568
         },
         {
           "id": "en-15",
+          "language": "en",
+          "category": "standard",
           "status": "blocked:fixture_oracle",
-          "seconds": 2.415
+          "expected_entities": 3,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 1,
+          "seconds": 9.531
+        },
+        {
+          "id": "ru-16",
+          "language": "ru",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.792
+        },
+        {
+          "id": "ru-17",
+          "language": "ru",
+          "category": "obfuscated",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 4.725
+        },
+        {
+          "id": "ru-18",
+          "language": "ru",
+          "category": "line-break",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.523
+        },
+        {
+          "id": "ru-19",
+          "language": "ru",
+          "category": "prompt-injection",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 5.559
+        },
+        {
+          "id": "ru-20",
+          "language": "ru",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 2.848
+        },
+        {
+          "id": "ru-21",
+          "language": "ru",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.685
+        },
+        {
+          "id": "ru-22",
+          "language": "ru",
+          "category": "line-break",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.088
+        },
+        {
+          "id": "ru-23",
+          "language": "ru",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 2.151
+        },
+        {
+          "id": "ru-24",
+          "language": "ru",
+          "category": "standard",
+          "status": "passed",
+          "expected_entities": 2,
+          "true_positives": 2,
+          "predicted_entities": 2,
+          "known_control_values_remaining": 0,
+          "seconds": 8.686
+        },
+        {
+          "id": "ru-25",
+          "language": "ru",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.6
+        },
+        {
+          "id": "ru-26",
+          "language": "ru",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 2.624
+        },
+        {
+          "id": "en-16",
+          "language": "en",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.297
+        },
+        {
+          "id": "en-17",
+          "language": "en",
+          "category": "obfuscated",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 1.414
+        },
+        {
+          "id": "en-18",
+          "language": "en",
+          "category": "line-break",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 1.421
+        },
+        {
+          "id": "en-19",
+          "language": "en",
+          "category": "prompt-injection",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 5.276
+        },
+        {
+          "id": "en-20",
+          "language": "en",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 3.474
+        },
+        {
+          "id": "en-21",
+          "language": "en",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 1.33
+        },
+        {
+          "id": "en-22",
+          "language": "en",
+          "category": "line-break",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.237
+        },
+        {
+          "id": "en-23",
+          "language": "en",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 2.506
+        },
+        {
+          "id": "en-24",
+          "language": "en",
+          "category": "standard",
+          "status": "blocked:fixture_oracle",
+          "expected_entities": 2,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 1,
+          "seconds": 4.243
+        },
+        {
+          "id": "en-25",
+          "language": "en",
+          "category": "unicode",
+          "status": "passed",
+          "expected_entities": 1,
+          "true_positives": 1,
+          "predicted_entities": 1,
+          "known_control_values_remaining": 0,
+          "seconds": 2.539
+        },
+        {
+          "id": "en-26",
+          "language": "en",
+          "category": "clean-negative",
+          "status": "blocked:GateBlocked",
+          "expected_entities": 0,
+          "true_positives": 0,
+          "predicted_entities": 0,
+          "known_control_values_remaining": 0,
+          "seconds": 1.994
         }
       ]
     }

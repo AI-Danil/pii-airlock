@@ -1,38 +1,44 @@
 # Local detector comparison
 
-Run date: 21 July 2026, after the span-based redaction change. Dataset: 30 synthetic documents (`15 ru + 15 en`). Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. No cloud provider was called. Hardware and model-build details are local to the author's machine, so latency is not transferable to another setup.
+Run date: 21 July 2026. Dataset: 52 synthetic documents (`26 ru + 26 en`), including 6 clean controls and 20 adversarial cases. Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. The cloud provider was not called. Latency belongs to one local machine and the installed model builds, so it is not a transferable performance claim.
+
+The previous 30-case run is not a baseline for direct comparison. This run expanded the dataset and corrected four oracle values that were not literal source substrings.
 
 | Metric | Qwen 3.5 9B | Gemma 4 E4B |
 |---|---:|---:|
-| Cases | 30 | 30 |
-| Entity recall | 0.7037 | 0.7593 |
-| Extra replacement values | 5 | 4 |
-| Detection failures | 4 | 0 |
+| Cases | 52 | 52 |
+| Entity recall | 0.8472 | 0.8056 |
+| Entity precision | 0.8243 | 0.9062 |
+| English recall | 0.8611 | 0.7778 |
+| Russian recall | 0.8333 | 0.8333 |
+| Extra replacement values | 9 | 4 |
+| Detection failures | 11 | 0 |
 | Invalid structured-output failures | 0 | 0 |
-| Non-exact-substring failures | 4 | 0 |
-| Runtime gate passes | 23 | 26 |
-| Runtime gate blocks | 3 | 4 |
-| Known-control leaks after runtime gate | 0 | 4 |
-| Fixture-oracle passes | 23 | 22 |
-| Known controls in fixture-oracle passes | 0 | 0 |
-| Deterministic restoration checks | 23 | 26 |
-| Median latency | 2.617 s | 1.355 s |
-| Maximum latency | 16.903 s | 18.933 s |
+| Non-exact-substring failures | 11 | 0 |
+| Runtime gate passes | 32 | 42 |
+| Runtime gate blocks | 9 | 10 |
+| Known-control leaks after runtime gate | 0 | 9 |
+| Fixture-oracle passes | 32 | 33 |
+| Fixture-assisted review projection | 42 | 42 |
+| Deterministic restoration checks | 43 | 42 |
+| Clean cases without detections | 6 / 6 | 6 / 6 |
+| Median latency | 11.053 s | 2.799 s |
+| Maximum latency | 20.860 s | 14.254 s |
 
-## Interpretation
+## What the numbers mean
 
-The runtime gate caught every known Qwen control in this run, but four Gemma payloads passed the implemented checks while still containing an expected sensitive value. The benchmark stopped those four payloads with its fixture oracle. This extra oracle compares output against labels in the test dataset and is unavailable for normal documents.
+Qwen found more labelled entities overall, but returned 11 model values that were not exact input substrings. The hybrid path retained deterministic rule spans for inspection; automatic completion stayed blocked until a person would confirm or edit those spans. Gemma returned valid structured output in every case, but nine payloads that passed the runtime gate still contained a labelled value. Qwen was explicitly loaded with a 4,096-token context, one prediction slot, and speculative MTP disabled after the previous local runtime became unresponsive; the benchmark used a 30-second per-case timeout. Gemma was then loaded with the same settings. No timed-out case appears in the published result.
 
-`Fixture-oracle passes` is therefore an evaluation count, not a count of payloads approved for real cloud use. The zero in `Known controls in fixture-oracle passes` only establishes that the labelled fixtures withheld known residual values.
+The fixture oracle stopped those nine Gemma payloads because it had the expected answers. An arbitrary document has no such oracle. `Fixture-assisted review projection` goes further: the benchmark applies the fixture labels as redactions and reruns the gate. It shows what the deterministic pipeline would do with perfect labels, not what a real reviewer achieved.
 
-Qwen produced four values that were not exact input substrings. They were rejected before pseudonymization. Neither model produced invalid JSON/schema output in this run. Gemma had higher recall and lower median latency, but four labelled leaks crossed the runtime gate. Neither result supports automatic use on high-risk documents.
+Per-type recall exposes different gaps. Qwen recall was 0.75 for `PERSON`, 0.6667 for `ADDRESS`, 0.5 for `ORG`, and 0.5 for `OTHER_SECRET`. Gemma recall was 0.4375 for `PERSON`, 0.5 for `ORG`, and 0.3333 for `TAX_ID`. Both reached 1.0 recall on the labelled phone and email cases, but that small synthetic slice does not establish general coverage.
 
-The Qwen build returned its schema-constrained JSON in `reasoning_content` with an empty `content` field. The compatibility path parses the same JSON and applies enum and exact-substring validation before accepting it.
+The Qwen build placed schema-constrained JSON in `reasoning_content` while leaving `content` empty. The compatibility path parses that JSON and still applies enum, exact-span, and gate checks. Both models remain experimental; neither result supports unattended use on high-risk documents.
 
 Machine-readable per-case output: [`live-combined.json`](live-combined.json). Reproduce with:
 
 ```bash
-pii-airlock benchmark --models qwen,gemma --output docs/evaluation/live-combined.json
+pii-airlock benchmark --models qwen,gemma --timeout 30 --output docs/evaluation/live-combined.json
 ```
 
-Repeated runs may differ despite temperature `0`, and model builds or hardware can change both detection and latency.
+Repeated runs may differ despite temperature `0`. Model builds and hardware can change detection and latency.

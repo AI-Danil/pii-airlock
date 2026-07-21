@@ -3,11 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 
 from .api import create_app
 from .benchmark import run_benchmark
-from .detectors import SUPPORTED_MODELS
+from .detectors import SUPPORTED_MODELS, HybridDetector, LMStudioDetector
 from .documents import extract_path
 from .models import AirlockError
 from .service import AirlockService
@@ -33,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_parser.add_argument("--models", default="qwen,gemma")
     benchmark_parser.add_argument("--fixtures", type=Path, default=Path("fixtures/synthetic_cases.jsonl"))
     benchmark_parser.add_argument("--output", type=Path)
+    benchmark_parser.add_argument("--timeout", type=float, default=30.0, help="Per-case LM Studio timeout in seconds.")
 
     serve_parser = subparsers.add_parser("serve", help="Start the local Web/API server on loopback.")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -54,7 +56,17 @@ def main() -> None:
             return
         if args.command == "benchmark":
             models = [_resolve_model(item.strip()) for item in args.models.split(",") if item.strip()]
-            report = run_benchmark(args.fixtures, models=models)
+            if args.timeout <= 0:
+                raise SystemExit("Benchmark timeout must be positive.")
+            detector = HybridDetector(LMStudioDetector(timeout=args.timeout))
+            report = run_benchmark(
+                args.fixtures,
+                models=models,
+                detector=detector,
+                progress=lambda model, current, total, case_id: print(
+                    f"[{model}] {current}/{total} {case_id}", file=sys.stderr, flush=True
+                ),
+            )
             rendered = json.dumps(report, ensure_ascii=False, indent=2)
             if args.output:
                 args.output.write_text(rendered + "\n", encoding="utf-8")

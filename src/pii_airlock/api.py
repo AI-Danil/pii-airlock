@@ -8,7 +8,7 @@ import os
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib import error, request
 from urllib.parse import urlsplit
 
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from .detectors import SUPPORTED_MODELS
 from .documents import MAX_BYTES, extract_bytes
-from .models import AirlockError, OperationNotFound, StoreCapacityError
+from .models import AirlockError, OperationNotFound, ServiceBusyError, StoreCapacityError
 from .service import AirlockService
 
 LOGGER = logging.getLogger("pii_airlock.audit")
@@ -92,7 +92,22 @@ class OperationRequest(BaseModel):
 class StatelessRequest(BaseModel):
     instructions: str = Field(min_length=1, max_length=4_000)
     input_text: str = Field(min_length=1, max_length=20_000)
+    input_trust: Literal["untrusted"] = "untrusted"
     model: str = "qwen/qwen3.5-9b"
+
+
+class ReviewEdit(BaseModel):
+    action: Literal["add", "remove", "retag"]
+    field: Literal["task", "text"]
+    start: int = Field(ge=0, le=20_000)
+    end: int = Field(gt=0, le=20_000)
+    type: str | None = None
+
+
+class RedactionReviewRequest(BaseModel):
+    task: str = Field(min_length=1, max_length=4_000)
+    text: str = Field(min_length=1, max_length=20_000)
+    edits: list[ReviewEdit] = Field(max_length=100)
 
 
 def create_app(
@@ -117,7 +132,7 @@ def create_app(
         finally:
             airlock.close()
 
-    app = FastAPI(title="PII Airlock", version="0.3.0", docs_url="/api/docs", lifespan=lifespan)
+    app = FastAPI(title="PII Airlock", version="0.4.0", docs_url="/api/docs", lifespan=lifespan)
     app.add_middleware(RequestBodyLimitMiddleware, max_bytes=max_body_bytes)
     app.state.airlock_service = airlock
 
@@ -244,6 +259,35 @@ def create_app(
         )
         return result
 
+    @app.patch("/api/v1/operations/{operation_id}/redactions")
+    def review_redactions(operation_id: str, payload: RedactionReviewRequest) -> dict[str, object]:
+        try:
+            operation = airlock.review_redactions(
+                operation_id,
+                fields={"task": payload.task, "text": payload.text},
+                edits=[item.model_dump() for item in payload.edits],
+            )
+        except AirlockError as exc:
+            LOGGER.info(
+                json.dumps(
+                    {"event": "redaction_review_blocked", "operation_id": operation_id, "reason": type(exc).__name__}
+                )
+            )
+            raise _as_http_exception(exc) from exc
+        LOGGER.info(
+            json.dumps(
+                {
+                    "event": "redaction_reviewed",
+                    "operation_id": operation_id,
+                    "revision": operation.review_revision,
+                    "entity_counts": operation.entity_counts,
+                    "status": operation.status,
+                },
+                sort_keys=True,
+            )
+        )
+        return operation.public_dict()
+
     @app.delete("/api/v1/operations/{operation_id}")
     def delete_operation(operation_id: str) -> dict[str, bool]:
         return {"deleted": airlock.store.delete(operation_id)}
@@ -301,7 +345,7 @@ def _auth_error(status_code: int, code: str, message: str) -> JSONResponse:
 
 
 def _as_http_exception(exc: AirlockError) -> HTTPException:
-    if isinstance(exc, StoreCapacityError):
+    if isinstance(exc, (StoreCapacityError, ServiceBusyError)):
         status_code = 429
     elif isinstance(exc, OperationNotFound):
         status_code = 404

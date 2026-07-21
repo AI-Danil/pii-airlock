@@ -168,3 +168,42 @@ def test_document_over_file_limit_returns_413() -> None:
         )
         assert response.status_code == 413
         assert response.json()["detail"]["code"] == "document_too_large"
+
+
+def test_cookie_authenticated_manual_redaction_review_is_source_bound() -> None:
+    with _client(_app()) as client:
+        client.get("/")
+        created = client.post("/api/v1/operations", json=_operation_payload(), headers=ORIGIN_HEADERS).json()
+        span = created["redactions"][0]
+        reviewed = client.patch(
+            f"/api/v1/operations/{created['operation_id']}/redactions",
+            headers=ORIGIN_HEADERS,
+            json={
+                "task": _operation_payload()["task"],
+                "text": _operation_payload()["text"],
+                "edits": [
+                    {
+                        "action": "retag",
+                        "field": span["field"],
+                        "start": span["start"],
+                        "end": span["end"],
+                        "type": "OTHER_SECRET",
+                    }
+                ],
+            },
+        )
+        assert reviewed.status_code == 200
+        assert reviewed.json()["review_revision"] == 1
+        assert reviewed.json()["redactions"][0]["type"] == "OTHER_SECRET"
+
+        mismatch = client.patch(
+            f"/api/v1/operations/{created['operation_id']}/redactions",
+            headers=ORIGIN_HEADERS,
+            json={
+                "task": _operation_payload()["task"],
+                "text": "Changed source",
+                "edits": [{"action": "add", "field": "text", "start": 0, "end": 7, "type": "PERSON"}],
+            },
+        )
+        assert mismatch.status_code == 422
+        assert mismatch.json()["detail"]["code"] == "invalid_redaction_review"
