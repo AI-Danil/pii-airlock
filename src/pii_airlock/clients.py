@@ -61,8 +61,7 @@ class OpenAIResponsesClient:
                     raise AirlockError("OpenAI Responses output exceeded the 2 MB limit.")
                 raw = json.loads(data.decode("utf-8"))
         except error.HTTPError as exc:
-            detail = exc.read(501).decode("utf-8", errors="replace")[:500]
-            raise AirlockError(f"OpenAI Responses HTTP {exc.code}: {detail}") from exc
+            raise AirlockError(f"OpenAI Responses HTTP {exc.code}.") from exc
         except error.URLError as exc:
             raise AirlockError(f"OpenAI Responses unavailable: {exc.reason}") from exc
         except (TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:

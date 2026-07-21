@@ -19,6 +19,39 @@ def test_redacts_longest_values_and_reuses_stable_token() -> None:
     person_token = "__PII_A1B2C3D4_PERSON_0001__"
     assert result.sanitized_fields["text"].count(person_token) == 2
     assert restore_text(result.sanitized_fields["text"], result.mapping) == fields["text"]
+    assert {item.field for item in result.redactions} == {"task", "text"}
+
+
+def test_nested_value_is_not_retained_without_a_separate_occurrence() -> None:
+    result = redact_fields(
+        {"text": "Elena Morozova"},
+        [Entity("Elena Morozova", EntityType.PERSON), Entity("Elena", EntityType.PERSON)],
+        nonce="A1B2C3D4",
+    )
+    assert list(result.mapping.values()) == ["Elena Morozova"]
+    assert [item.start for item in result.redactions] == [0]
+
+
+def test_short_value_is_retained_at_a_non_overlapping_occurrence() -> None:
+    result = redact_fields(
+        {"text": "Elena Morozova called Elena"},
+        [Entity("Elena Morozova", EntityType.PERSON), Entity("Elena", EntityType.PERSON)],
+        nonce="A1B2C3D4",
+    )
+    assert list(result.mapping.values()) == ["Elena Morozova", "Elena"]
+    assert [(item.start, item.end) for item in result.redactions] == [(0, 14), (22, 27)]
+
+
+def test_redaction_spans_are_field_local_and_public_metadata_has_no_raw_value() -> None:
+    result = redact_fields(
+        {"task": "Email Elena", "text": "Elena Morozova"},
+        [Entity("Elena Morozova", EntityType.PERSON), Entity("Elena", EntityType.PERSON)],
+        nonce="A1B2C3D4",
+    )
+    assert [(item.field, item.start, item.end) for item in result.redactions] == [
+        ("task", 6, 11),
+        ("text", 0, 14),
+    ]
 
 
 def test_rejects_entity_not_present_in_input() -> None:

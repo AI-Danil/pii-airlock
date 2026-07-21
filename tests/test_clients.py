@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+from urllib import error
+
 import pytest
 
 from pii_airlock import clients
@@ -51,3 +54,12 @@ def test_cloud_response_size_is_bounded(monkeypatch) -> None:
     client = OpenAIResponsesClient(api_key="test", model="test")
     with pytest.raises(AirlockError, match="2 MB"):
         client.complete(instructions="Summarize", input_text="safe")
+
+    raw_secret = "provider-reflected-secret"
+    http_error = error.HTTPError(
+        "https://api.openai.com/v1/responses", 500, "error", {}, io.BytesIO(raw_secret.encode())
+    )
+    monkeypatch.setattr(clients.request, "urlopen", lambda *_args, **_kwargs: (_ for _ in ()).throw(http_error))
+    with pytest.raises(AirlockError) as caught:
+        client.complete(instructions="Summarize", input_text="safe")
+    assert raw_secret not in str(caught.value)

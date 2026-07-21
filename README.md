@@ -23,7 +23,7 @@ flowchart LR
     G --> H["Restore current-operation values"]
 ```
 
-The mapping is held in memory for at most ten minutes. A completed, failed, expired, deleted, or blocked operation loses its mapping. The HTTP app rejects non-loopback clients even if it is accidentally started on an external interface.
+The mapping is held in memory for at most ten minutes. One background sweeper removes expired mappings without waiting for another request, and the store accepts at most 100 pending operations. Completion atomically claims an operation, so concurrent retries cannot call the provider twice. The HTTP app also validates the loopback client and `Host`; browser writes require an HttpOnly session cookie and same origin.
 
 ## Run locally
 
@@ -40,6 +40,15 @@ source .venv/bin/activate
 python -m pip install -e '.[dev]'
 pii-airlock serve
 ```
+
+Machine clients must also set a random API token. The stateless route is disabled when this value is empty:
+
+```bash
+export PII_AIRLOCK_API_TOKEN="$(openssl rand -hex 32)"
+pii-airlock serve
+```
+
+Set the token before starting the process. Machine clients send the same value as `Authorization: Bearer <token>`.
 
 Open `http://127.0.0.1:8787`. With no cloud configuration, completion ends as a dry-run and shows the provider-bound `instructions` and `input_text`.
 
@@ -69,15 +78,15 @@ V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. OCR, imag
 
 | Method | Route | Purpose |
 |---|---|---|
-| `GET` | `/api/v1/health` | LM Studio reachability, advertised model IDs, cloud configuration flag |
+| `GET` | `/api/v1/health` | LM Studio reachability and boolean configuration flags; no secrets |
 | `POST` | `/api/v1/operations` | Detect, pseudonymize, and return reviewable outbound content |
 | `POST` | `/api/v1/operations/{id}/complete` | Run dry-run/provider call and destroy the mapping |
 | `DELETE` | `/api/v1/operations/{id}` | Destroy the operation immediately |
-| `POST` | `/api/v1/complete` | Stateless path used by an assistant integration |
+| `POST` | `/api/v1/complete` | Bearer-only stateless path; disabled without `PII_AIRLOCK_API_TOKEN` |
 
-`READY_FOR_REVIEW` means that the implemented deterministic checks found no residual value they recognize. It is not an approval decision. API callers are responsible for their own review or policy gate.
+The Web UI gets a random HttpOnly, SameSite=Strict session cookie. Its state-changing requests also require an exact same-origin `Origin`. A valid bearer token can call state-changing routes without a browser session. Requests above 5 MiB + 64 KiB are rejected before document parsing. `READY_FOR_REVIEW` means only that the implemented checks found no residual value they recognize.
 
-## Published run: 20 July 2026
+## Published run: 21 July 2026
 
 The repository contains 30 synthetic cases: 15 Russian and 15 English. No cloud request was made during the benchmark.
 
@@ -89,8 +98,8 @@ The repository contains 30 synthetic cases: 15 Russian and 15 English. No cloud 
 | Runtime gate passes | 23 | 26 |
 | Known-control leaks after runtime gate | 0 | 4 |
 | Fixture-oracle passes | 23 | 22 |
-| Median latency | 1.948 s | 1.014 s |
-| Maximum latency | 4.152 s | 15.628 s |
+| Median latency | 2.617 s | 1.355 s |
+| Maximum latency | 16.903 s | 18.933 s |
 
 All four Qwen detection failures were exact-substring violations, not JSON-schema failures. The runtime gate caught every known Qwen control in this run but missed four Gemma cases. The fixture oracle withheld those four payloads because it knew the expected labels; such an oracle cannot protect an arbitrary document. Both local models remain experimental.
 

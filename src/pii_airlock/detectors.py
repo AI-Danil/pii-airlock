@@ -188,8 +188,7 @@ def _post_json(url: str, payload: dict[str, object], timeout: float) -> dict[str
                 raise DetectionError("LM Studio response exceeded the 2 MB limit.", code="response_too_large")
             return json.loads(data.decode("utf-8"))
     except error.HTTPError as exc:
-        response_body = exc.read(501).decode("utf-8", errors="replace")[:500]
-        raise DetectionError(f"LM Studio HTTP {exc.code}: {response_body}", code="http_error") from exc
+        raise DetectionError(f"LM Studio HTTP {exc.code}.", code="http_error") from exc
     except error.URLError as exc:
         raise DetectionError(f"LM Studio unavailable: {exc.reason}", code="unavailable") from exc
     except (TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:

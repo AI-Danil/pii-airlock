@@ -3,10 +3,11 @@ let operationId = null;
 let cloudConfigured = false;
 
 async function requestJSON(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { credentials: 'same-origin', ...options });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.detail || `HTTP ${response.status}`);
+    const detail = typeof data.detail === 'object' ? data.detail.message : data.detail;
+    throw new Error(detail || `HTTP ${response.status}`);
   }
   return data;
 }
@@ -55,6 +56,7 @@ $('analyze').addEventListener('click', async () => {
     $('entities').textContent = Object.entries(data.entity_counts)
       .map(([type, count]) => `${type} × ${count}`)
       .join('\n') || 'No entities were detected.';
+    renderRedactionPreview(data.redactions || []);
     $('payload').textContent = JSON.stringify(data.outbound_content, null, 2);
     if (data.status === 'READY_FOR_REVIEW') {
       setStatus('REVIEW REQUIRED', 'No deterministic leak was found; inspect the outbound fields.');
@@ -93,9 +95,44 @@ $('destroy').addEventListener('click', async () => {
 
 function resetOutputs() {
   $('entities').textContent = 'Analyzing…';
+  $('redactionPreview').replaceChildren();
   $('payload').textContent = 'Waiting for the local checks…';
   $('answer').textContent = 'No provider call has been made.';
   $('complete').disabled = true;
+}
+
+function renderRedactionPreview(redactions) {
+  const container = $('redactionPreview');
+  container.replaceChildren();
+  const fields = [
+    ['task', 'Task', $('task').value],
+    ['text', 'Document', $('source').value],
+  ];
+  for (const [field, label, value] of fields) {
+    const spans = redactions
+      .filter((item) => item.field === field)
+      .sort((left, right) => left.start - right.start);
+    if (!spans.length) continue;
+
+    const section = document.createElement('section');
+    const heading = document.createElement('h3');
+    heading.textContent = `${label} · local-only highlight`;
+    section.appendChild(heading);
+    const preview = document.createElement('p');
+    let position = 0;
+    for (const span of spans) {
+      preview.appendChild(document.createTextNode(value.slice(position, span.start)));
+      const marked = document.createElement('mark');
+      marked.textContent = value.slice(span.start, span.end);
+      marked.title = `${span.type} → ${span.token}`;
+      marked.setAttribute('aria-label', `${span.type} redaction`);
+      preview.appendChild(marked);
+      position = span.end;
+    }
+    preview.appendChild(document.createTextNode(value.slice(position)));
+    section.appendChild(preview);
+    container.appendChild(section);
+  }
 }
 
 function setStatus(label, detail = '') {

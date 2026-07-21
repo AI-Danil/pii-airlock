@@ -18,158 +18,158 @@
       },
       "runtime_gate_blocks": 3,
       "deterministic_restoration_checks": 23,
-      "latency_median_seconds": 1.948,
-      "latency_max_seconds": 4.152,
+      "latency_median_seconds": 2.617,
+      "latency_max_seconds": 16.903,
       "case_results": [
         {
           "id": "ru-01",
           "status": "blocked:non_exact_substring",
-          "seconds": 4.152
+          "seconds": 16.903
         },
         {
           "id": "ru-02",
           "status": "blocked:non_exact_substring",
-          "seconds": 2.334
+          "seconds": 3.258
         },
         {
           "id": "ru-03",
           "status": "blocked:GateBlocked",
-          "seconds": 2.246
+          "seconds": 3.052
         },
         {
           "id": "ru-04",
           "status": "passed",
-          "seconds": 1.948
+          "seconds": 2.509
         },
         {
           "id": "ru-05",
           "status": "passed",
-          "seconds": 1.72
+          "seconds": 2.239
         },
         {
           "id": "ru-06",
           "status": "passed",
-          "seconds": 1.728
+          "seconds": 2.207
         },
         {
           "id": "ru-07",
           "status": "passed",
-          "seconds": 1.947
+          "seconds": 2.567
         },
         {
           "id": "ru-08",
           "status": "passed",
-          "seconds": 1.899
+          "seconds": 2.439
         },
         {
           "id": "ru-09",
           "status": "passed",
-          "seconds": 2.039
+          "seconds": 2.705
         },
         {
           "id": "ru-10",
           "status": "blocked:non_exact_substring",
-          "seconds": 2.867
+          "seconds": 3.718
         },
         {
           "id": "ru-11",
           "status": "passed",
-          "seconds": 2.418
+          "seconds": 3.138
         },
         {
           "id": "ru-12",
           "status": "passed",
-          "seconds": 2.974
+          "seconds": 3.88
         },
         {
           "id": "ru-13",
           "status": "blocked:non_exact_substring",
-          "seconds": 2.066
+          "seconds": 2.694
         },
         {
           "id": "ru-14",
           "status": "passed",
-          "seconds": 1.694
+          "seconds": 2.215
         },
         {
           "id": "ru-15",
           "status": "passed",
-          "seconds": 2.929
+          "seconds": 3.758
         },
         {
           "id": "en-01",
           "status": "passed",
-          "seconds": 1.885
+          "seconds": 2.415
         },
         {
           "id": "en-02",
           "status": "passed",
-          "seconds": 2.297
+          "seconds": 2.883
         },
         {
           "id": "en-03",
           "status": "blocked:GateBlocked",
-          "seconds": 1.612
+          "seconds": 2.048
         },
         {
           "id": "en-04",
           "status": "passed",
-          "seconds": 1.55
+          "seconds": 1.997
         },
         {
           "id": "en-05",
           "status": "passed",
-          "seconds": 1.708
+          "seconds": 2.201
         },
         {
           "id": "en-06",
           "status": "passed",
-          "seconds": 1.727
+          "seconds": 2.179
         },
         {
           "id": "en-07",
           "status": "passed",
-          "seconds": 1.947
+          "seconds": 2.628
         },
         {
           "id": "en-08",
           "status": "passed",
-          "seconds": 1.856
+          "seconds": 2.322
         },
         {
           "id": "en-09",
           "status": "passed",
-          "seconds": 1.851
+          "seconds": 2.414
         },
         {
           "id": "en-10",
           "status": "passed",
-          "seconds": 2.776
+          "seconds": 3.615
         },
         {
           "id": "en-11",
           "status": "blocked:GateBlocked",
-          "seconds": 2.228
+          "seconds": 2.932
         },
         {
           "id": "en-12",
           "status": "passed",
-          "seconds": 2.527
+          "seconds": 3.184
         },
         {
           "id": "en-13",
           "status": "passed",
-          "seconds": 1.936
+          "seconds": 2.607
         },
         {
           "id": "en-14",
           "status": "passed",
-          "seconds": 1.027
+          "seconds": 1.276
         },
         {
           "id": "en-15",
           "status": "passed",
-          "seconds": 2.821
+          "seconds": 3.617
         }
       ]
     },
@@ -186,158 +186,158 @@
       "detection_failures_by_code": {},
       "runtime_gate_blocks": 4,
       "deterministic_restoration_checks": 26,
-      "latency_median_seconds": 1.014,
-      "latency_max_seconds": 15.628,
+      "latency_median_seconds": 1.355,
+      "latency_max_seconds": 18.933,
       "case_results": [
         {
           "id": "ru-01",
           "status": "passed",
-          "seconds": 15.628
+          "seconds": 18.933
         },
         {
           "id": "ru-02",
           "status": "passed",
-          "seconds": 1.412
+          "seconds": 1.836
         },
         {
           "id": "ru-03",
           "status": "blocked:GateBlocked",
-          "seconds": 0.364
+          "seconds": 0.468
         },
         {
           "id": "ru-04",
           "status": "passed",
-          "seconds": 1.301
+          "seconds": 1.674
         },
         {
           "id": "ru-05",
           "status": "passed",
-          "seconds": 1.118
+          "seconds": 1.408
         },
         {
           "id": "ru-06",
           "status": "passed",
-          "seconds": 0.371
+          "seconds": 0.459
         },
         {
           "id": "ru-07",
           "status": "passed",
-          "seconds": 0.473
+          "seconds": 0.593
         },
         {
           "id": "ru-08",
           "status": "passed",
-          "seconds": 0.346
+          "seconds": 0.428
         },
         {
           "id": "ru-09",
           "status": "passed",
-          "seconds": 1.492
+          "seconds": 1.956
         },
         {
           "id": "ru-10",
           "status": "passed",
-          "seconds": 2.014
+          "seconds": 2.654
         },
         {
           "id": "ru-11",
           "status": "blocked:GateBlocked",
-          "seconds": 1.258
+          "seconds": 1.634
         },
         {
           "id": "ru-12",
           "status": "passed",
-          "seconds": 2.527
+          "seconds": 3.269
         },
         {
           "id": "ru-13",
           "status": "passed",
-          "seconds": 1.005
+          "seconds": 1.339
         },
         {
           "id": "ru-14",
           "status": "passed",
-          "seconds": 0.359
+          "seconds": 0.465
         },
         {
           "id": "ru-15",
           "status": "passed",
-          "seconds": 2.486
+          "seconds": 3.187
         },
         {
           "id": "en-01",
           "status": "blocked:fixture_oracle",
-          "seconds": 1.022
+          "seconds": 1.371
         },
         {
           "id": "en-02",
           "status": "blocked:fixture_oracle",
-          "seconds": 0.384
+          "seconds": 0.467
         },
         {
           "id": "en-03",
           "status": "blocked:GateBlocked",
-          "seconds": 0.869
+          "seconds": 1.124
         },
         {
           "id": "en-04",
           "status": "passed",
-          "seconds": 0.955
+          "seconds": 1.261
         },
         {
           "id": "en-05",
           "status": "passed",
-          "seconds": 1.125
+          "seconds": 1.434
         },
         {
           "id": "en-06",
           "status": "passed",
-          "seconds": 0.36
+          "seconds": 0.443
         },
         {
           "id": "en-07",
           "status": "passed",
-          "seconds": 0.457
+          "seconds": 0.644
         },
         {
           "id": "en-08",
           "status": "passed",
-          "seconds": 0.336
+          "seconds": 0.446
         },
         {
           "id": "en-09",
           "status": "passed",
-          "seconds": 1.279
+          "seconds": 1.643
         },
         {
           "id": "en-10",
           "status": "passed",
-          "seconds": 2.386
+          "seconds": 3.162
         },
         {
           "id": "en-11",
           "status": "blocked:GateBlocked",
-          "seconds": 0.98
+          "seconds": 1.271
         },
         {
           "id": "en-12",
           "status": "blocked:fixture_oracle",
-          "seconds": 0.916
+          "seconds": 1.229
         },
         {
           "id": "en-13",
           "status": "passed",
-          "seconds": 1.425
+          "seconds": 1.829
         },
         {
           "id": "en-14",
           "status": "passed",
-          "seconds": 0.356
+          "seconds": 0.452
         },
         {
           "id": "en-15",
           "status": "blocked:fixture_oracle",
-          "seconds": 1.832
+          "seconds": 2.415
         }
       ]
     }

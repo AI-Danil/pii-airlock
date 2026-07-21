@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = build_parser().parse_args()
+    service: AirlockService | None = None
     try:
         if args.command == "serve":
             if args.host not in {"127.0.0.1", "localhost", "::1"}:
@@ -70,6 +71,9 @@ def main() -> None:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except AirlockError as exc:
         raise SystemExit(f"BLOCKED: {exc}") from exc
+    finally:
+        if service is not None:
+            service.close()
 
 
 def _resolve_model(value: str) -> str:

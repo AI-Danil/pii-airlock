@@ -143,6 +143,39 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.redaction-preview {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.redaction-preview section {
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.redaction-preview h3 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.redaction-preview p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.redaction-preview mark {
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: var(--warning);
+  color: #19140a;
+}
+
 .muted {
   color: var(--muted);
 }

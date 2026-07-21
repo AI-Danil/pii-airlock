@@ -1,6 +1,6 @@
 # Local detector comparison
 
-Run date: 20 July 2026. Dataset: 30 synthetic documents (`15 ru + 15 en`). Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. No cloud provider was called. Hardware and model-build details are local to the author's machine, so latency is not transferable to another setup.
+Run date: 21 July 2026, after the span-based redaction change. Dataset: 30 synthetic documents (`15 ru + 15 en`). Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. No cloud provider was called. Hardware and model-build details are local to the author's machine, so latency is not transferable to another setup.
 
 | Metric | Qwen 3.5 9B | Gemma 4 E4B |
 |---|---:|---:|
@@ -16,8 +16,8 @@ Run date: 20 July 2026. Dataset: 30 synthetic documents (`15 ru + 15 en`). Endpo
 | Fixture-oracle passes | 23 | 22 |
 | Known controls in fixture-oracle passes | 0 | 0 |
 | Deterministic restoration checks | 23 | 26 |
-| Median latency | 1.948 s | 1.014 s |
-| Maximum latency | 4.152 s | 15.628 s |
+| Median latency | 2.617 s | 1.355 s |
+| Maximum latency | 16.903 s | 18.933 s |
 
 ## Interpretation
 

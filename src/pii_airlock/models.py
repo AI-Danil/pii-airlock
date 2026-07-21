@@ -32,10 +32,20 @@ class Entity:
 
 
 @dataclass(frozen=True)
+class RedactionSpan:
+    field: str
+    start: int
+    end: int
+    type: EntityType
+    token: str
+
+
+@dataclass(frozen=True)
 class RedactionResult:
     sanitized_fields: dict[str, str]
     mapping: dict[str, str]
     entities: tuple[Entity, ...]
+    redactions: tuple[RedactionSpan, ...]
     nonce: str
 
 
@@ -48,6 +58,7 @@ class Operation:
     entity_counts: dict[str, int]
     created_at: float
     expires_at: float
+    redactions: tuple[RedactionSpan, ...] = ()
     status: str = "READY_FOR_REVIEW"
     blocked_reasons: list[str] = field(default_factory=list)
 
@@ -64,6 +75,16 @@ class Operation:
             "sanitized_fields": dict(self.sanitized_fields),
             "outbound_content": self.outbound_content(),
             "entity_counts": dict(self.entity_counts),
+            "redactions": [
+                {
+                    "field": item.field,
+                    "start": item.start,
+                    "end": item.end,
+                    "type": item.type.value,
+                    "token": item.token,
+                }
+                for item in self.redactions
+            ],
             "status": self.status,
             "blocked_reasons": list(self.blocked_reasons),
             "expires_in_seconds": max(0.0, round(self.expires_at - time.monotonic(), 3)),
@@ -88,3 +109,11 @@ class GateBlocked(AirlockError):
 
 class UnknownTokenError(AirlockError):
     pass
+
+
+class OperationNotFound(AirlockError):
+    code = "operation_not_found"
+
+
+class StoreCapacityError(AirlockError):
+    code = "operation_capacity_exceeded"

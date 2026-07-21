@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import logging
+from urllib import error
 
 import pytest
 from fastapi.testclient import TestClient
@@ -55,6 +57,19 @@ def test_lm_studio_timeout_is_fail_closed(monkeypatch) -> None:
     with pytest.raises(DetectionError, match="timed out"):
         detectors._post_json("http://127.0.0.1:1234/v1/chat/completions", {}, 0.01)
 
+    raw_secret = "local-model-reflected-secret"
+    http_error = error.HTTPError(
+        "http://127.0.0.1:1234/v1/chat/completions",
+        500,
+        "error",
+        {},
+        io.BytesIO(raw_secret.encode()),
+    )
+    monkeypatch.setattr(detectors.request, "urlopen", lambda *_args, **_kwargs: (_ for _ in ()).throw(http_error))
+    with pytest.raises(DetectionError) as caught:
+        detectors._post_json("http://127.0.0.1:1234/v1/chat/completions", {}, 0.01)
+    assert raw_secret not in str(caught.value)
+
 
 def test_lm_studio_response_size_is_bounded(monkeypatch) -> None:
     class OversizedResponse:
@@ -74,14 +89,19 @@ def test_lm_studio_response_size_is_bounded(monkeypatch) -> None:
 
 def test_audit_log_does_not_include_raw_source(caplog) -> None:
     raw = "alice@example.test"
-    client = TestClient(
-        create_app(AirlockService(detector=SecretDetector(), cloud_client=None)),
+    api_token = "synthetic-audit-token-000000000000"
+    app = create_app(AirlockService(detector=SecretDetector(), cloud_client=None), api_token=api_token)
+    with TestClient(
+        app,
+        base_url="http://127.0.0.1:8787",
         client=("127.0.0.1", 50_000),
-    )
-    with caplog.at_level(logging.INFO, logger="pii_airlock.audit"):
-        response = client.post(
-            "/api/v1/operations",
-            json={"text": f"Contact {raw}", "task": "Summarize", "model": "qwen/qwen3.5-9b"},
-        )
+    ) as client:
+        with caplog.at_level(logging.INFO, logger="pii_airlock.audit"):
+            response = client.post(
+                "/api/v1/operations",
+                json={"text": f"Contact {raw}", "task": "Summarize", "model": "qwen/qwen3.5-9b"},
+                headers={"Authorization": f"Bearer {api_token}"},
+            )
     assert response.status_code == 200
     assert raw not in caplog.text
+    assert api_token not in caplog.text
