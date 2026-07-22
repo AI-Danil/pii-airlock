@@ -25,9 +25,9 @@ The cloud response remains untrusted. Unknown, altered, incomplete, or over-repe
 - a detached blind-review bundle and pre-registered thresholds, with the honest status `not_collected` because no independent reviewer has returned labels;
 - a disabled, fail-closed Gosha adapter that requires bearer authentication, a token-audit result, an untrusted-output policy, and explicit confirmation before external actions.
 
-The fixtures contain no real personal data or usable credentials. The earlier 30-case numbers are not comparable because the dataset changed and four invalid oracle spans were corrected. The published model run used the former typed token mode and made no cloud call; it measures detector behavior, not provider-answer quality under the opaque mode.
+The fixtures contain no real personal data or usable credentials. The earlier 30-case numbers are not comparable because the dataset changed and four invalid oracle spans were corrected. The published model run used the shipped opaque token mode and made no cloud call; a typed re-run reproduced the same detection figures. It measures detector behavior, not provider-answer quality.
 
-## Live result, 21 July 2026
+## Live result, 22 July 2026
 
 | Metric | Qwen | Gemma |
 |---|---:|---:|
@@ -39,7 +39,7 @@ The fixtures contain no real personal data or usable credentials. The earlier 30
 | Fixture-oracle passes | 32 | 33 |
 | Fixture-assisted review projection | 42 | 42 |
 | Clean cases without detections | 6 / 6 | 6 / 6 |
-| Median latency | 11.053 s | 2.799 s |
+| Median latency | 2.039 s | 0.492 s |
 
 Qwen's 11 failures were non-exact proposals. Deterministic findings survived for review, but the automatic path stayed blocked. Gemma had no schema failure, yet nine labelled values crossed the runtime gate. The fixture oracle stopped them because it knew the labels; real documents do not come with that oracle.
 

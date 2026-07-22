@@ -1,6 +1,6 @@
 # Local detector comparison
 
-Run date: 21 July 2026. Dataset: 52 synthetic documents (`26 ru + 26 en`), including 6 clean controls and 20 adversarial cases. Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. The cloud provider was not called. The run used the former `typed` token mode; it measures detection and deterministic redaction, not provider-answer quality. The runtime now defaults to per-occurrence `opaque` tokens. Latency belongs to one local machine and the installed model builds, so it is not a transferable performance claim.
+Run date: 22 July 2026. Dataset: 52 synthetic documents (`26 ru + 26 en`), including 6 clean controls and 20 adversarial cases. Endpoint: LM Studio `chat/completions`; temperature `0`; JSON schema enabled. The cloud provider was not called. The run used the shipped per-occurrence `opaque` token mode; it measures detection and deterministic redaction, not provider-answer quality. A `typed` re-run of the same fixtures reproduced every detection figure, since the token mode changes the placeholder text rather than the detection. Latency belongs to one local machine and the installed model builds, so it is not a transferable performance claim.
 
 The previous 30-case run is not a baseline for direct comparison. This run expanded the dataset and corrected four oracle values that were not literal source substrings.
 
@@ -22,8 +22,8 @@ The previous 30-case run is not a baseline for direct comparison. This run expan
 | Fixture-assisted review projection | 42 | 42 |
 | Deterministic restoration checks | 43 | 42 |
 | Clean cases without detections | 6 / 6 | 6 / 6 |
-| Median latency | 11.053 s | 2.799 s |
-| Maximum latency | 20.860 s | 14.254 s |
+| Median latency | 2.039 s | 0.492 s |
+| Maximum latency | 3.379 s | 19.891 s |
 
 ## What the numbers mean
 
