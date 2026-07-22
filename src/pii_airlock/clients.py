@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from ipaddress import ip_address
 from typing import Protocol
 from urllib import error, request
+from urllib.parse import urlparse
 
 from .models import AirlockError
+
+MAX_PROVIDER_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
 class CloudClient(Protocol):
@@ -15,9 +19,31 @@ class CloudClient(Protocol):
 @dataclass
 class OpenAIResponsesClient:
     api_key: str
-    model: str = "gpt-5.6-luna"
+    model: str
     base_url: str = "https://api.openai.com/v1"
     timeout: float = 120.0
+
+    def __post_init__(self) -> None:
+        parsed = urlparse(self.base_url)
+        try:
+            is_loopback = bool(parsed.hostname and ip_address(parsed.hostname).is_loopback)
+        except ValueError:
+            is_loopback = False
+        is_loopback_http = parsed.scheme == "http" and is_loopback
+        if (
+            (parsed.scheme != "https" and not is_loopback_http)
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.params
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Cloud base URL must use HTTPS, except for an explicit loopback test endpoint.")
+        if not self.api_key.strip() or not self.model.strip():
+            raise ValueError("Cloud API key and model must be non-empty.")
+        if self.timeout <= 0:
+            raise ValueError("Cloud timeout must be positive.")
 
     def complete(self, *, instructions: str, input_text: str) -> str:
         payload = {"model": self.model, "instructions": instructions, "input": input_text, "store": False}
@@ -30,13 +56,15 @@ class OpenAIResponsesClient:
         )
         try:
             with request.urlopen(req, timeout=self.timeout) as response:
-                raw = json.loads(response.read().decode("utf-8"))
+                data = response.read(MAX_PROVIDER_RESPONSE_BYTES + 1)
+                if len(data) > MAX_PROVIDER_RESPONSE_BYTES:
+                    raise AirlockError("OpenAI Responses output exceeded the 2 MB limit.")
+                raw = json.loads(data.decode("utf-8"))
         except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:500]
-            raise AirlockError(f"OpenAI Responses HTTP {exc.code}: {detail}") from exc
+            raise AirlockError(f"OpenAI Responses HTTP {exc.code}.") from exc
         except error.URLError as exc:
             raise AirlockError(f"OpenAI Responses unavailable: {exc.reason}") from exc
-        except (TimeoutError, json.JSONDecodeError) as exc:
+        except (TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise AirlockError("OpenAI Responses timed out or returned non-JSON output.") from exc
         text = _extract_output_text(raw)
         if not text:

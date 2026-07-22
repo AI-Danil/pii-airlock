@@ -2,91 +2,143 @@
 
 [Русская версия](README.ru.md)
 
-PII Airlock is a public, local-first privacy gateway for cloud LLM requests. A local model finds sensitive substrings, deterministic code replaces them with operation-scoped tokens, a second gate checks the exact outgoing payload, and only then may the payload reach OpenAI. The cloud response is untrusted: only exact tokens from the current in-memory mapping can be restored.
+PII Airlock is a small local gateway for testing pseudonymization before a cloud-model call. Deterministic rules and LM Studio propose sensitive substrings; Python maps Unicode-obfuscated rule matches back to exact source spans, validates model proposals, replaces selected spans with operation-scoped tokens, and scans the result again. The default opaque tokens hide entity types and do not expose repeated-value linkage. The provider response is accepted only if every PII-like token belongs to that operation and appears no more often than it did in the request.
 
-This is a demonstrator, not a claim of perfect anonymization. The published benchmark intentionally records misses and blocks unsafe synthetic cases.
+The project does not determine that a document is safe. Its runtime checks missed known controls in the published synthetic run. The Web UI therefore uses `READY_FOR_REVIEW`, not `SAFE_TO_SEND`, and cloud access is off until both an API key and a model are configured.
 
-![PII Airlock dry-run with a real local Qwen analysis](docs/screenshots/pii-airlock-dry-run.png)
+![PII Airlock Web UI in dry-run mode](docs/screenshots/pii-airlock-dry-run.png)
 
-## What the demo proves
-
-- Both the task/instructions and document use one local pseudonymization map.
-- Raw values and mappings are not logged or persisted by the application.
-- Mappings expire after 10 minutes and are deleted after completion, dry-run, or explicit `DELETE`.
-- Invalid local JSON, residual high-confidence secrets, existing source tokens, and unknown/altered cloud tokens fail closed.
-- Without `OPENAI_API_KEY`, the service shows the exact payload it would send and makes no cloud call.
-- The release gate reports zero control-secret leaks among approved payloads on the included 30-case synthetic dataset. This statement applies only to that dataset and run.
-
-## Architecture
+## Data flow
 
 ```mermaid
 flowchart LR
-    A["Document + task"] --> B["Local LM Studio detector"]
-    B --> C["Exact-substring validation"]
-    C --> D["Deterministic pseudonymization"]
-    D --> E{"Residual-secret gate"}
-    E -->|BLOCKED| X["No cloud call"]
-    E -->|SAFE TO SEND| F["OpenAI Responses API or dry-run"]
-    F --> G{"Current-operation token gate"}
-    G -->|unknown or altered| X
-    G -->|exact tokens| H["Local restoration"]
+    A["Untrusted task and document"] --> B["Rules plus LM Studio on loopback"]
+    B --> C["Exact-span validation and review"]
+    C --> D["Opaque, per-occurrence tokens"]
+    D --> E["Rules-based residual scan"]
+    E -->|blocked| X["No provider call; mapping destroyed"]
+    E -->|ready for review| R["Outbound content shown to caller"]
+    R --> F["Dry-run or Responses API"]
+    F --> G["Reject unknown or altered tokens"]
+    G --> H["Restore current-operation values"]
 ```
 
-See [architecture and threat model](docs/architecture.md) for trust boundaries and non-goals.
+The mapping is held in memory for at most ten minutes. One background sweeper removes expired mappings without waiting for another request, and the store accepts at most 100 pending operations. Completion atomically claims an operation, so the guarantee is **at most one** provider attempt: a failed attempt is not retried automatically. The HTTP app also validates the loopback client and `Host`; browser writes require an HttpOnly session cookie and same origin.
 
-## Quick start
+## Run locally
 
-Requirements: Python 3.11+, LM Studio listening only on `127.0.0.1:1234`, and either `qwen/qwen3.5-9b` or `google/gemma-4-e4b` installed.
+Requirements: Python 3.11+ and LM Studio listening on `127.0.0.1:1234`. Load one of these local model IDs:
+
+- `qwen/qwen3.5-9b`
+- `google/gemma-4-e4b`
 
 ```bash
+git clone https://github.com/AI-Danil/pii-airlock.git
+cd pii-airlock
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+python -m pip install --require-hashes --only-binary :all: -r requirements-dev.lock
+python -m pip install --no-deps --no-build-isolation -e .
 pii-airlock serve
 ```
 
-Open `http://127.0.0.1:8787`. Dry-run is the default. To opt into cloud processing, copy `.env.example`, export `OPENAI_API_KEY`, and restart the local process. The OpenAI call uses the Responses endpoint with `store: false`; your account and provider policies still apply.
+Machine clients must also set a random API token. The stateless route is disabled when this value is empty:
 
-Official protocol references: [LM Studio structured output](https://lmstudio.ai/docs/developer/openai-compat/structured-output), [LM Studio server settings](https://lmstudio.ai/docs/developer/core/server/settings), and [OpenAI latest model guide](https://developers.openai.com/api/docs/guides/latest-model).
+```bash
+export PII_AIRLOCK_API_TOKEN="$(openssl rand -hex 32)"
+pii-airlock serve
+```
+
+Set the token before starting the process. Machine clients send the same value as `Authorization: Bearer <token>`.
+
+`opaque` is the default token mode. It creates a different token for every selected occurrence and does not encode the entity type. `typed` is available for diagnostics through `--token-mode typed` or `PII_AIRLOCK_TOKEN_MODE=typed`, but it reveals type and equality information to the provider.
+
+Open `http://127.0.0.1:8787`. With no cloud configuration, completion ends as a dry-run and shows the provider-bound `instructions` and `input_text`.
+
+To enable an OpenAI call, set both variables explicitly:
+
+```bash
+export OPENAI_API_KEY='...'
+export OPENAI_MODEL='model-available-to-your-account'
+pii-airlock serve
+```
+
+The client calls `POST /v1/responses` with `store: false`. This request setting does not replace the provider and account data policies. The project intentionally has no hard-coded cloud model default because model availability changes.
+
+Protocol references: [LM Studio structured output](https://lmstudio.ai/docs/developer/openai-compat/structured-output), [LM Studio server settings](https://lmstudio.ai/docs/developer/core/server/settings), and the [OpenAI Responses API reference](https://developers.openai.com/api/reference/resources/responses/methods/create).
 
 ## CLI
 
 ```bash
-pii-airlock inspect document.docx --model qwen
-pii-airlock complete document.pdf --task "Summarize" --model gemma
-pii-airlock benchmark --models qwen,gemma --output docs/evaluation/latest.json
+pii-airlock inspect document.docx --model qwen --token-mode opaque
+pii-airlock complete document.pdf --task "Summarize" --model gemma --token-mode opaque --authorize
+pii-airlock benchmark --models qwen,gemma --timeout 30 --token-mode opaque --output result.json
+pii-airlock verify-receipt review-receipt.json
 ```
 
-Supported V1 inputs: pasted text, `.txt`, `.md`, `.docx`, and PDF with a text layer. OCR, images, archives, files over 5 MB, and extracted text over 20,000 characters are rejected.
+Without `--authorize`, `complete` prints the redactions and exits without contacting the provider: the flag is the terminal equivalent of the reviewer confirmation the Web UI requires.
+
+V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. Extraction returns a manifest describing the format, text length, covered document regions, and active isolation. DOCX headers, footers, paragraphs, and tables are included; unsupported hidden or active parts are rejected instead of silently omitted. PDFs with attachments, JavaScript, forms, annotations, optional layers, or automatic actions are rejected. OCR, images, archives, and inputs above 20,000 extracted characters are outside V1. DOCX expansion is capped at 25 MB; PDFs are capped at 100 pages. Binary parsers run in spawned workers with resource limits, cleared ambient credentials, Python capability guards, and a macOS OS sandbox when available. Other platforms report the missing OS sandbox in the manifest.
 
 ## Local API
 
-| Method | Path | Purpose |
+| Method | Route | Purpose |
 |---|---|---|
-| `GET` | `/api/v1/health` | LM Studio reachability, available model IDs, cloud configuration flag |
-| `POST` | `/api/v1/operations` | Analyze and return sanitized preview |
-| `POST` | `/api/v1/operations/{id}/complete` | Dry-run or cloud round trip and restoration |
-| `DELETE` | `/api/v1/operations/{id}` | Destroy mapping now |
-| `POST` | `/api/v1/complete` | Synchronous adapter endpoint for agents such as Gosha |
+| `GET` | `/api/v1/health` | LM Studio reachability and boolean configuration flags; no secrets |
+| `POST` | `/api/v1/operations` | Detect, pseudonymize, and return reviewable outbound content |
+| `PATCH` | `/api/v1/operations/{id}/redactions` | Confirm, add, remove, or retag exact source spans before completion |
+| `POST` | `/api/v1/operations/{id}/authorize` | Record the reviewer confirmation for one revision; required before completion |
+| `POST` | `/api/v1/operations/{id}/complete` | Run dry-run/provider call and destroy the mapping |
+| `DELETE` | `/api/v1/operations/{id}` | Destroy the operation immediately |
+| `POST` | `/api/v1/complete` | Bearer-only stateless path; disabled without `PII_AIRLOCK_API_TOKEN` |
+| `POST` | `/api/v1/receipts/verify` | Verify a review receipt against the current configured signing key |
 
-## Reproducible evidence
+The Web UI gets a random HttpOnly, SameSite=Strict session cookie. Its state-changing requests also require an exact same-origin `Origin`. A valid bearer token can call state-changing routes without a browser session. The `Host` header must be a loopback literal or `localhost`. Requests above 5 MiB + 64 KiB are rejected before document parsing. `READY_FOR_REVIEW` means only that the implemented checks found no residual value they recognize.
 
-The repository contains 15 Russian and 15 English synthetic cases. Final live results are in [the comparison report](docs/evaluation/model-comparison.md) and machine-readable JSON files under `docs/evaluation/`. Offline tests use stubs and require neither LM Studio nor API keys:
+Completion refuses an operation that is not `AUTHORIZED` for the revision on screen: the reviewer confirms once, and any later span edit resets that confirmation. When the source carries prompt-injection warnings, authorization additionally requires `acknowledge_warnings`, which the UI exposes as a separate checkbox and the CLI as `--acknowledge-warnings`. The stateless bearer route has no reviewer, so it refuses those warnings outright instead of asking for a confirmation it cannot obtain.
+
+After review, completion returns an HMAC-signed receipt containing source and token fingerprints, span metadata, review channel, warnings, model, token mode, and optional build commit. It contains neither source values nor tokens. Set a random `PII_AIRLOCK_RECEIPT_KEY` of at least 32 characters if receipts must survive a process restart; without it the signing key is ephemeral. A valid receipt proves consistency with one Airlock process and key, not that the reviewer was correct or the document was anonymous.
+
+## Published run: 22 July 2026
+
+The repository contains 52 synthetic cases: 26 Russian and 26 English. Six are clean controls and 20 are tagged adversarial cases, including Unicode/zero-width obfuscation, split contact values, and prompt-like instructions. No cloud request was made during the benchmark. The original 30-case numbers are not directly comparable: the fixture set was expanded and four incorrect oracle spans were corrected before this run. This run uses the shipped `opaque` default. Re-running the same fixtures in `typed` mode reproduced every detection figure below unchanged, which is expected: the token mode changes the placeholder text, not what the detector finds. Latency was measured on one machine with warm models and is not a benchmark of either model. No provider-answer quality was measured in either mode.
+
+| Metric | Qwen 3.5 9B | Gemma 4 E4B |
+|---|---:|---:|
+| Entity recall | 0.8472 | 0.8056 |
+| Entity precision | 0.8243 | 0.9062 |
+| Extra replacement values | 9 | 4 |
+| Detection failures | 11 | 0 |
+| Runtime gate passes | 32 | 42 |
+| Known-control leaks after runtime gate | 0 | 9 |
+| Fixture-oracle passes | 32 | 33 |
+| Fixture-assisted review projection | 42 | 42 |
+| Median latency | 2.039 s | 0.492 s |
+| Maximum latency | 3.379 s | 19.891 s |
+
+Qwen produced 11 non-exact model proposals. The hybrid detector now preserves deterministic rule spans in those cases, but automatic completion remains blocked until a person confirms or edits the spans. Gemma produced no structured-output failure, yet nine payloads that passed the runtime gate still contained a labelled value. The fixture oracle stopped those nine only because it knew the answers. `Fixture-assisted review projection` applies fixture labels as if they were manual edits; it is not a measured human-review result. Both local models remain experimental.
+
+See the [comparison note](docs/evaluation/model-comparison.md) and [machine-readable run](docs/evaluation/live-combined.json).
+
+The repository also contains a detached 52-item blind-review bundle and a pre-registered scoring protocol. It excludes fixture labels and original case IDs. No independent reviewer has completed it, so the human-review result is honestly `not_collected`; fixture-assisted projections are not presented as human evidence.
+
+## Security limits
+
+Rules cover selected email, phone, payment-card, key, passport, tax-ID, contract-ID, and labelled-secret formats, including several whitespace and Unicode obfuscations. They do not cover every name, address, organization, identifier, credential, or visual confusable. A local model can miss an entity or follow an instruction embedded in a document. Prompt-like source text is visibly flagged; the unattended stateless route blocks it. Delimiting untrusted content reduces instruction confusion but is not a sandbox. Exact-substring validation prevents invented replacements; it does not improve recall. Restored provider text is explicitly marked `untrusted_model_output`; downstream tools and external actions require a separate user confirmation policy.
+
+Use synthetic data while evaluating the project. For real high-risk documents, keep cloud disabled and use an independently reviewed policy and detector set. See [SECURITY.md](SECURITY.md) and the [architecture and threat model](docs/architecture.md).
+
+## Development checks
 
 ```bash
 pytest
-python -m compileall -q src tests
+ruff check .
+ruff format --check .
+python -m compileall -q src tests scripts
+python scripts/scan_secrets.py
+pip-audit --disable-pip --no-deps -r requirements.lock
 ```
 
-## Limits
+The offline suite currently contains 96 tests, including property-based token checks and random binary parser rejection. Clean hash-locked installs and the suite passed locally on Python 3.11 and 3.12. GitHub Actions repeats the checks with stubs. Separate workflows audit locked runtime dependencies, generate a CycloneDX SBOM, and attest tagged release artifacts. LM Studio and provider credentials are not used in CI.
 
-Local model recall is imperfect. Deterministic rules cover selected high-confidence formats, not every name, address, organization, or secret. A prompt injection inside the document can influence a weak local model despite the data delimiters; exact-substring validation limits fabrication but does not guarantee complete detection. Use dry-run and human review for high-risk documents. See [SECURITY.md](SECURITY.md).
-
-## Case study and submission artifacts
-
-- [English case study](docs/case-study.en.md)
-- [Russian case study](docs/case-study.ru.md)
-- [Model comparison](docs/evaluation/model-comparison.md)
-- [Gosha adapter contract](docs/gosha-integration.md)
-
-MIT licensed.
+MIT License.

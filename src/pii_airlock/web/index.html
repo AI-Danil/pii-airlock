@@ -10,38 +10,82 @@
 <body>
   <main>
     <header>
-      <span class="eyebrow">LOCAL → CLOUD → LOCAL</span>
+      <span class="eyebrow">LOCAL CHECK → OPTIONAL CLOUD CALL → LOCAL RESTORE</span>
       <h1>PII Airlock</h1>
-      <p>A local privacy boundary for cloud LLM requests. Raw values stay on this machine.</p>
-      <div id="health" class="health">Checking local stack…</div>
+      <p>Review what the service found and the exact text fields prepared for the provider. A passed rule check is not proof that the document contains no sensitive data.</p>
+      <div id="health" class="health" aria-live="polite">Checking local services…</div>
     </header>
 
     <section class="controls card">
-      <label>Local detector
+      <label for="model">Local detector
         <select id="model">
           <option value="qwen/qwen3.5-9b">Qwen 3.5 9B</option>
           <option value="google/gemma-4-e4b">Gemma 4 E4B</option>
         </select>
       </label>
-      <label>Task
+      <label for="tokenMode">Placeholder privacy
+        <select id="tokenMode">
+          <option value="opaque">Opaque · hides type and repeat links</option>
+          <option value="typed">Typed · preserves type and repeat links</option>
+        </select>
+      </label>
+      <label for="task">Task
         <input id="task" value="Write a concise, polite reply while preserving every PII token exactly.">
       </label>
-      <label class="file">Load TXT / MD / DOCX / PDF
+      <label class="file" for="file">Load TXT / MD / DOCX / PDF
         <input id="file" type="file" accept=".txt,.md,.docx,.pdf">
+        <small id="fileManifest">No document parser manifest yet.</small>
       </label>
     </section>
 
     <section class="grid">
-      <article class="card"><span class="step">01 · LOCAL INPUT</span><h2>Original document</h2><textarea id="source">Contact Elena Morozova at elena.morozova@example.test or +7 999 123-45-67. Contract CN-2049 belongs to Northstar Lab.</textarea></article>
-      <article class="card"><span class="step">02 · LOCAL DETECTION</span><h2>Detected types</h2><div id="entities" class="output muted">Nothing analyzed yet.</div></article>
-      <article class="card"><span class="step">03 · CLOUD PAYLOAD</span><h2>Pseudonymized text</h2><pre id="payload" class="output muted">Nothing leaves this page before the local gate passes.</pre></article>
-      <article class="card"><span class="step">04 · LOCAL RESTORE</span><h2>Final answer</h2><div id="answer" class="output muted">Dry-run works without an OpenAI key.</div></article>
+      <article class="card">
+        <span class="step">01 · INPUT</span>
+        <h2><label for="source">Original document</label></h2>
+        <textarea id="source">Contact Elena Morozova at elena.morozova@example.test or +7 999 123-45-67.</textarea>
+      </article>
+      <article class="card">
+        <span class="step">02 · LOCAL RESULT</span>
+        <h2>Detected entity types</h2>
+        <div id="entities" class="output muted">Not analyzed.</div>
+        <div id="securityWarnings" class="warnings" aria-live="polite"></div>
+        <div id="redactionPreview" class="redaction-preview muted" aria-live="polite"></div>
+        <div id="reviewTools" class="review-tools" hidden>
+          <label for="reviewType">Manual type
+            <select id="reviewType">
+              <option>PERSON</option><option>PHONE</option><option>EMAIL</option><option>ADDRESS</option>
+              <option>ORG</option><option>CONTRACT_ID</option><option>PASSPORT</option><option>TAX_ID</option>
+              <option>CARD</option><option>API_KEY</option><option>OTHER_SECRET</option>
+            </select>
+          </label>
+          <button id="confirmSpans">Confirm current spans</button>
+          <button id="addSelection" class="secondary" disabled>Add selected text</button>
+          <button id="retagSelection" class="secondary" disabled>Change selected type</button>
+          <button id="removeSelection" class="danger" disabled>Remove selected redaction</button>
+          <p id="reviewHint">Select text to add a span, or click a highlighted span to edit it.</p>
+        </div>
+      </article>
+      <article class="card">
+        <span class="step">03 · OUTBOUND CONTENT</span>
+        <h2>Fields prepared for the provider</h2>
+        <pre id="payload" class="output muted">Run the local check to see the outbound content.</pre>
+      </article>
+      <article class="card">
+        <span class="step">04 · RESULT</span>
+        <h2>Restored answer</h2>
+        <div id="answer" class="output muted">No provider call has been made.</div>
+      </article>
     </section>
 
     <footer class="actions">
-      <div id="status" class="status idle">NOT ANALYZED</div>
-      <button id="analyze">Analyze locally</button>
-      <button id="complete" class="secondary" disabled>Send sanitized payload</button>
+      <div id="status" class="status idle" role="status" aria-live="polite">NOT ANALYZED</div>
+      <button id="analyze">Run local check</button>
+      <label id="acknowledgeRow" class="acknowledge" hidden>
+        <input id="acknowledgeWarnings" type="checkbox">
+        I read the warnings and still authorize this send
+      </label>
+      <button id="complete" class="secondary" disabled>I reviewed it — continue</button>
+      <button id="downloadReceipt" class="ghost receipt" hidden>Download signed receipt</button>
       <button id="destroy" class="ghost" disabled>Destroy mapping</button>
     </footer>
   </main>

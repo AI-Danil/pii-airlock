@@ -1,13 +1,14 @@
 # Gosha integration
 
-PII Airlock stays an independent service. Gosha does not copy its detection/redaction logic; a thin loopback client calls `POST /api/v1/complete` with both `instructions` and `input_text`, allowing one operation-scoped mapping to cover both fields.
+PII Airlock runs as a separate loopback service. Gosha's adapter sends `instructions`, `input_text`, and `input_trust: untrusted` to `POST /api/v1/complete`; both text fields share one operation mapping. Detection and redaction code are not copied into Gosha.
 
 ```dotenv
 GOSHA_PRIVACY_GATEWAY_ENABLED=false
 GOSHA_PRIVACY_GATEWAY_URL=http://127.0.0.1:8787
+GOSHA_PRIVACY_GATEWAY_TOKEN=
 GOSHA_PRIVACY_GATEWAY_TIMEOUT=180
 ```
 
-The adapter validates that the URL is loopback-only. When enabled, a gateway error raises the existing Gosha LLM error and never falls through to direct OpenAI. The existing local fallback remains the caller's responsibility. A dry-run response is not treated as a completed generation because it has no restored cloud answer.
+`GOSHA_PRIVACY_GATEWAY_TOKEN` must equal the Airlock process's `PII_AIRLOCK_API_TOKEN` and contain at least 32 characters. The adapter sends it only in the bearer header. When the feature flag is on, a missing token or any gateway error does not fall through to a direct OpenAI request. A dry-run response is rejected because it contains no restored provider answer. A completed response is also rejected unless it contains a structured token audit with observed counts and omitted-token data and the expected `untrusted_model_output` policy. Gosha preserves this taint in `LlmTextResult`; `assert_external_action_allowed()` rejects a downstream external action until the caller records explicit user confirmation. With the flag off, the existing provider path is unchanged.
 
-The initial integration was deliberately left local and disabled. Its dedicated tests cover restored output, no direct OpenAI call through the enabled gateway, fail-closed behavior, and unchanged direct behavior when the flag is off.
+The adapter and its tests remain local to the private Gosha checkout. The flag remains off because the published benchmark found known controls that passed the runtime gate. The stateless endpoint now blocks prompt-like source instructions, but it still has no human span review. Enabling it needs an explicit acceptance policy, independent review evidence, and confirmation enforcement at every actual action boundary; a successful HTTP response is not that policy.
