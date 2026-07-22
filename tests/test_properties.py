@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from pii_airlock import documents
 from pii_airlock.models import AirlockError, EntityType, TokenMode, UnknownTokenError
-from pii_airlock.redaction import redact_spans, restore_text
+from pii_airlock.redaction import RESERVED_TOKEN_PREFIX, redact_spans, restore_text
 
 
 @given(
@@ -16,6 +16,9 @@ from pii_airlock.redaction import redact_spans, restore_text
     )
 )
 def test_opaque_span_redaction_round_trips_without_type_or_equality_linkage(values: list[str]) -> None:
+    # The alphabet can spell the reserved prefix; such input is refused by
+    # design and is covered by test_redaction, not by this round trip.
+    assume(all(RESERVED_TOKEN_PREFIX.casefold() not in value.casefold() for value in values))
     text = "|".join(values)
     spans = []
     cursor = 0

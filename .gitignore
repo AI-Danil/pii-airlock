@@ -13,3 +13,4 @@ output/
 build/
 dist/
 work/
+.claude/
