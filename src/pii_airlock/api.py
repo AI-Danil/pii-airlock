@@ -112,6 +112,11 @@ class RedactionReviewRequest(BaseModel):
     edits: list[ReviewEdit] = Field(max_length=100)
 
 
+class AuthorizationRequest(BaseModel):
+    review_revision: int = Field(ge=0, le=1_000)
+    acknowledge_warnings: bool = False
+
+
 class ReceiptVerifyRequest(BaseModel):
     receipt: dict[str, object]
 
@@ -257,6 +262,42 @@ def create_app(
         )
         return operation.public_dict()
 
+    @app.post("/api/v1/operations/{operation_id}/authorize")
+    def authorize_operation(
+        operation_id: str,
+        payload: AuthorizationRequest,
+        http_request: Request,
+    ) -> dict[str, object]:
+        try:
+            operation = airlock.authorize_operation(
+                operation_id,
+                review_revision=payload.review_revision,
+                acknowledge_warnings=payload.acknowledge_warnings,
+                authorization_channel=(
+                    "bearer" if _bearer_matches(http_request, configured_api_token) else "browser_session"
+                ),
+            )
+        except AirlockError as exc:
+            LOGGER.info(
+                json.dumps(
+                    {"event": "authorization_blocked", "operation_id": operation_id, "reason": type(exc).__name__}
+                )
+            )
+            raise _as_http_exception(exc) from exc
+        LOGGER.info(
+            json.dumps(
+                {
+                    "event": "operation_authorized",
+                    "operation_id": operation_id,
+                    "revision": operation.review_revision,
+                    "channel": operation.authorization_channel,
+                    "acknowledged_warnings": operation.acknowledged_warnings,
+                },
+                sort_keys=True,
+            )
+        )
+        return operation.public_dict()
+
     @app.post("/api/v1/operations/{operation_id}/complete")
     def complete_operation(operation_id: str) -> dict[str, object]:
         try:
@@ -348,13 +389,14 @@ def _valid_loopback_host(host_header: str) -> bool:
     try:
         parsed = urlsplit(f"//{host_header}")
         port = parsed.port
-        return bool(
-            parsed.hostname
-            and parsed.username is None
-            and parsed.password is None
-            and (port is None or 0 < port <= 65_535)
-            and ipaddress.ip_address(parsed.hostname).is_loopback
-        )
+        if not parsed.hostname or parsed.username is not None or parsed.password is not None:
+            return False
+        if port is not None and not 0 < port <= 65_535:
+            return False
+        if parsed.hostname == "localhost":
+            # The one name allowed: it cannot be repointed by DNS rebinding.
+            return True
+        return ipaddress.ip_address(parsed.hostname).is_loopback
     except ValueError:
         return False
 

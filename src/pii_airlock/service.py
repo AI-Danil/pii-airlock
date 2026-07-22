@@ -275,6 +275,11 @@ class AirlockService:
             operation.review_revision += 1
             operation.review_channel = review_channel
             operation.status = "READY_FOR_REVIEW"
+            # Any edit invalidates a previous authorization: the human must
+            # confirm the redactions they are actually about to send.
+            operation.authorized_revision = None
+            operation.authorization_channel = "not_recorded"
+            operation.acknowledged_warnings = False
             operation.blocked_reasons = []
             try:
                 assert_no_deterministic_leaks(replacement)
@@ -287,10 +292,60 @@ class AirlockService:
 
         return self.store.update(operation_id, apply_review)
 
-    def complete_operation(self, operation_id: str) -> dict[str, object]:
+    def authorize_operation(
+        self,
+        operation_id: str,
+        *,
+        review_revision: int,
+        acknowledge_warnings: bool = False,
+        authorization_channel: str = "local_api",
+    ) -> Operation:
+        """Record the explicit human confirmation that precedes a cloud send.
+
+        The confirmation is bound to the revision the reviewer actually saw, so
+        a later edit cannot inherit an earlier approval.
+        """
+
+        def apply_authorization(operation: Operation) -> None:
+            if operation.status == "BLOCKED":
+                raise GateBlocked(operation.blocked_reasons)
+            if review_revision != operation.review_revision:
+                raise ReviewError("Authorization does not match the reviewed revision.")
+            if operation.security_warnings and not acknowledge_warnings:
+                raise GateBlocked(
+                    [
+                        "The source contains possible prompt-injection or external-action instructions; "
+                        "acknowledge them explicitly before the cloud send.",
+                        *operation.security_warnings,
+                    ]
+                )
+            operation.status = "AUTHORIZED"
+            operation.authorized_revision = operation.review_revision
+            operation.authorization_channel = authorization_channel
+            operation.acknowledged_warnings = bool(operation.security_warnings and acknowledge_warnings)
+
+        return self.store.update(operation_id, apply_authorization)
+
+    def complete_operation(self, operation_id: str, *, require_authorization: bool = True) -> dict[str, object]:
+        if require_authorization:
+            # Refuse before claiming, so a missing confirmation costs the
+            # reviewer a click rather than the whole analysis.
+            pending = self.store.get(operation_id)
+            unauthorized = pending.status != "AUTHORIZED" or pending.authorized_revision != pending.review_revision
+            # A blocked operation still falls through and is consumed below: it
+            # can never be completed, so there is nothing to preserve.
+            if pending.status != "BLOCKED" and unauthorized:
+                raise GateBlocked(
+                    [
+                        "Cloud send requires an explicit authorization of the reviewed redactions.",
+                        *pending.blocked_reasons,
+                    ]
+                )
         operation = self.store.claim_for_completion(operation_id)
         try:
-            if operation.status != "READY_FOR_REVIEW":
+            if operation.status == "BLOCKED":
+                raise GateBlocked(operation.blocked_reasons)
+            if operation.status not in {"READY_FOR_REVIEW", "AUTHORIZED"}:
                 raise GateBlocked(operation.blocked_reasons)
             review_receipt = self.receipt_signer.sign_operation(operation)
             if not self.cloud_client:
@@ -337,7 +392,9 @@ class AirlockService:
         if operation.security_warnings:
             self.store.delete(operation.id)
             raise GateBlocked(["Stateless mode rejected possible prompt injection or external-action instructions."])
-        return self.complete_operation(operation.id)
+        # No human is in the loop on this route, so it refuses on any warning
+        # above instead of asking for a confirmation it cannot obtain.
+        return self.complete_operation(operation.id, require_authorization=False)
 
     def close(self) -> None:
         self.store.close()

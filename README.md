@@ -71,10 +71,12 @@ Protocol references: [LM Studio structured output](https://lmstudio.ai/docs/deve
 
 ```bash
 pii-airlock inspect document.docx --model qwen --token-mode opaque
-pii-airlock complete document.pdf --task "Summarize" --model gemma --token-mode opaque
+pii-airlock complete document.pdf --task "Summarize" --model gemma --token-mode opaque --authorize
 pii-airlock benchmark --models qwen,gemma --timeout 30 --token-mode opaque --output result.json
 pii-airlock verify-receipt review-receipt.json
 ```
+
+Without `--authorize`, `complete` prints the redactions and exits without contacting the provider: the flag is the terminal equivalent of the reviewer confirmation the Web UI requires.
 
 V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. Extraction returns a manifest describing the format, text length, covered document regions, and active isolation. DOCX headers, footers, paragraphs, and tables are included; unsupported hidden or active parts are rejected instead of silently omitted. PDFs with attachments, JavaScript, forms, annotations, optional layers, or automatic actions are rejected. OCR, images, archives, and inputs above 20,000 extracted characters are outside V1. DOCX expansion is capped at 25 MB; PDFs are capped at 100 pages. Binary parsers run in spawned workers with resource limits, cleared ambient credentials, Python capability guards, and a macOS OS sandbox when available. Other platforms report the missing OS sandbox in the manifest.
 
@@ -85,18 +87,21 @@ V1 reads pasted text, TXT, Markdown, DOCX, and PDFs with a text layer. Extractio
 | `GET` | `/api/v1/health` | LM Studio reachability and boolean configuration flags; no secrets |
 | `POST` | `/api/v1/operations` | Detect, pseudonymize, and return reviewable outbound content |
 | `PATCH` | `/api/v1/operations/{id}/redactions` | Confirm, add, remove, or retag exact source spans before completion |
+| `POST` | `/api/v1/operations/{id}/authorize` | Record the reviewer confirmation for one revision; required before completion |
 | `POST` | `/api/v1/operations/{id}/complete` | Run dry-run/provider call and destroy the mapping |
 | `DELETE` | `/api/v1/operations/{id}` | Destroy the operation immediately |
 | `POST` | `/api/v1/complete` | Bearer-only stateless path; disabled without `PII_AIRLOCK_API_TOKEN` |
 | `POST` | `/api/v1/receipts/verify` | Verify a review receipt against the current configured signing key |
 
-The Web UI gets a random HttpOnly, SameSite=Strict session cookie. Its state-changing requests also require an exact same-origin `Origin`. A valid bearer token can call state-changing routes without a browser session. Requests above 5 MiB + 64 KiB are rejected before document parsing. `READY_FOR_REVIEW` means only that the implemented checks found no residual value they recognize.
+The Web UI gets a random HttpOnly, SameSite=Strict session cookie. Its state-changing requests also require an exact same-origin `Origin`. A valid bearer token can call state-changing routes without a browser session. The `Host` header must be a loopback literal or `localhost`. Requests above 5 MiB + 64 KiB are rejected before document parsing. `READY_FOR_REVIEW` means only that the implemented checks found no residual value they recognize.
+
+Completion refuses an operation that is not `AUTHORIZED` for the revision on screen: the reviewer confirms once, and any later span edit resets that confirmation. When the source carries prompt-injection warnings, authorization additionally requires `acknowledge_warnings`, which the UI exposes as a separate checkbox and the CLI as `--acknowledge-warnings`. The stateless bearer route has no reviewer, so it refuses those warnings outright instead of asking for a confirmation it cannot obtain.
 
 After review, completion returns an HMAC-signed receipt containing source and token fingerprints, span metadata, review channel, warnings, model, token mode, and optional build commit. It contains neither source values nor tokens. Set a random `PII_AIRLOCK_RECEIPT_KEY` of at least 32 characters if receipts must survive a process restart; without it the signing key is ephemeral. A valid receipt proves consistency with one Airlock process and key, not that the reviewer was correct or the document was anonymous.
 
-## Published run: 21 July 2026
+## Published run: 22 July 2026
 
-The repository contains 52 synthetic cases: 26 Russian and 26 English. Six are clean controls and 20 are tagged adversarial cases, including Unicode/zero-width obfuscation, split contact values, and prompt-like instructions. No cloud request was made during the benchmark. The original 30-case numbers are not directly comparable: the fixture set was expanded and four incorrect oracle spans were corrected before this run. This run predates the opaque default and is explicitly recorded as `token_mode: typed`; detector recall is still reproducible, but no provider-answer quality was measured for either token mode.
+The repository contains 52 synthetic cases: 26 Russian and 26 English. Six are clean controls and 20 are tagged adversarial cases, including Unicode/zero-width obfuscation, split contact values, and prompt-like instructions. No cloud request was made during the benchmark. The original 30-case numbers are not directly comparable: the fixture set was expanded and four incorrect oracle spans were corrected before this run. This run uses the shipped `opaque` default. Re-running the same fixtures in `typed` mode reproduced every detection figure below unchanged, which is expected: the token mode changes the placeholder text, not what the detector finds. Latency was measured on one machine with warm models and is not a benchmark of either model. No provider-answer quality was measured in either mode.
 
 | Metric | Qwen 3.5 9B | Gemma 4 E4B |
 |---|---:|---:|
@@ -108,8 +113,8 @@ The repository contains 52 synthetic cases: 26 Russian and 26 English. Six are c
 | Known-control leaks after runtime gate | 0 | 9 |
 | Fixture-oracle passes | 32 | 33 |
 | Fixture-assisted review projection | 42 | 42 |
-| Median latency | 11.053 s | 2.799 s |
-| Maximum latency | 20.860 s | 14.254 s |
+| Median latency | 2.039 s | 0.492 s |
+| Maximum latency | 3.379 s | 19.891 s |
 
 Qwen produced 11 non-exact model proposals. The hybrid detector now preserves deterministic rule spans in those cases, but automatic completion remains blocked until a person confirms or edits the spans. Gemma produced no structured-output failure, yet nine payloads that passed the runtime gate still contained a labelled value. The fixture oracle stopped those nine only because it knew the answers. `Fixture-assisted review projection` applies fixture labels as if they were manual edits; it is not a measured human-review result. Both local models remain experimental.
 

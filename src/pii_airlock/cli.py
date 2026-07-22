@@ -32,6 +32,16 @@ def build_parser() -> argparse.ArgumentParser:
     complete_parser.add_argument("--task", required=True)
     complete_parser.add_argument("--model", default="qwen")
     complete_parser.add_argument("--token-mode", choices=[mode.value for mode in TokenMode], default="opaque")
+    complete_parser.add_argument(
+        "--authorize",
+        action="store_true",
+        help="Confirm the redactions printed by 'inspect'; required before any cloud send.",
+    )
+    complete_parser.add_argument(
+        "--acknowledge-warnings",
+        action="store_true",
+        help="Send even though the source carries prompt-injection warnings.",
+    )
 
     benchmark_parser = subparsers.add_parser("benchmark", help="Evaluate installed LM Studio models on synthetic data.")
     benchmark_parser.add_argument("--models", default="qwen,gemma")
@@ -101,6 +111,17 @@ def main() -> None:
         if args.command == "inspect":
             print(json.dumps(operation.public_dict(), ensure_ascii=False, indent=2))
             return
+        if not args.authorize:
+            print(json.dumps(operation.public_dict(), ensure_ascii=False, indent=2))
+            raise SystemExit(
+                "BLOCKED: review the redactions above, then re-run with --authorize to send them to the provider."
+            )
+        service.authorize_operation(
+            operation.id,
+            review_revision=operation.review_revision,
+            acknowledge_warnings=args.acknowledge_warnings,
+            authorization_channel="cli_flag",
+        )
         result = service.complete_operation(operation.id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except AirlockError as exc:

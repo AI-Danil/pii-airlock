@@ -34,4 +34,4 @@ Other limits:
 - OS-enforced process limits and sandboxing vary by platform. Linux currently uses spawn, resource limits, `no_new_privs`, and Python audit guards but no seccomp/namespace profile. Parser isolation reduces blast radius; it is not a malware sandbox.
 - OCR, images, audio, malware scanning, encrypted persistence, regulatory certification, and protection from a compromised host are outside V1.
 
-For real high-risk material, keep the provider disabled and use independently reviewed controls. `READY_FOR_REVIEW` must not be treated as an authorization decision.
+For real high-risk material, keep the provider disabled and use independently reviewed controls. `READY_FOR_REVIEW` must not be treated as an authorization decision; the separate `AUTHORIZED` state records only that a reviewer confirmed a specific revision, not that the redaction was complete.

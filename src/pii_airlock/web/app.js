@@ -68,8 +68,20 @@ $('analyze').addEventListener('click', async () => {
   }
 });
 
+$('acknowledgeWarnings').addEventListener('change', updateCompleteButton);
+
 $('complete').addEventListener('click', async () => {
   try {
+    // Authorization is a separate call bound to the revision on screen, so an
+    // edit made after this click cannot inherit the confirmation.
+    await requestJSON(`/api/v1/operations/${operationId}/authorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        review_revision: currentOperation ? currentOperation.review_revision : 0,
+        acknowledge_warnings: $('acknowledgeWarnings').checked,
+      }),
+    });
     const data = await requestJSON(`/api/v1/operations/${operationId}/complete`, { method: 'POST' });
     $('answer').textContent = data.restored_text || 'Dry-run finished. The displayed outbound content was not sent.';
     if (data.output_trust) {
@@ -110,7 +122,18 @@ function resetOutputs() {
   $('reviewTools').hidden = true;
   $('payload').textContent = 'Waiting for the local checks…';
   $('answer').textContent = 'No provider call has been made.';
+  $('acknowledgeWarnings').checked = false;
+  $('acknowledgeRow').hidden = true;
   $('complete').disabled = true;
+}
+
+function updateCompleteButton() {
+  if (!currentOperation || currentOperation.status === 'BLOCKED') {
+    $('complete').disabled = true;
+    return;
+  }
+  const needsAcknowledgement = (currentOperation.security_warnings || []).length > 0;
+  $('complete').disabled = needsAcknowledgement && !$('acknowledgeWarnings').checked;
 }
 
 function renderRedactionPreview(redactions) {
@@ -155,6 +178,7 @@ function updateOperationView(data) {
   currentOperation = data;
   selectedSourceSpan = null;
   selectedRedaction = null;
+  $('acknowledgeWarnings').checked = false;
   $('reviewHint').textContent = 'Select text to add a span, or click a highlighted span to edit it.';
   $('entities').textContent = Object.entries(data.entity_counts)
     .map(([type, count]) => `${type} × ${count}`)
@@ -166,18 +190,20 @@ function updateOperationView(data) {
   $('reviewTools').hidden = false;
   updateReviewButtons();
   $('destroy').disabled = false;
-  if (data.status === 'READY_FOR_REVIEW') {
-    setStatus('REVIEW REQUIRED', 'Inspect the outbound fields; rule checks are not proof of anonymity.');
-    $('complete').disabled = false;
-  } else {
+  if (data.status === 'BLOCKED') {
     setStatus('BLOCKED', data.blocked_reasons.join('\n'));
-    $('complete').disabled = true;
+  } else if ((data.security_warnings || []).length) {
+    setStatus('REVIEW REQUIRED', 'The source carries injection warnings; acknowledge them to authorize the send.');
+  } else {
+    setStatus('REVIEW REQUIRED', 'Inspect the outbound fields; rule checks are not proof of anonymity.');
   }
+  updateCompleteButton();
 }
 
 function renderWarnings(securityWarnings, detectorWarnings) {
   const container = $('securityWarnings');
   container.replaceChildren();
+  $('acknowledgeRow').hidden = !securityWarnings.length;
   const warnings = [...securityWarnings, ...detectorWarnings];
   if (!warnings.length) return;
   const heading = document.createElement('strong');

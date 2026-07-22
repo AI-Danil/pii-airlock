@@ -176,7 +176,14 @@ def _extract_isolated(data: bytes, normalized_suffix: str) -> ExtractedDocument:
         raise ServiceBusyError("All isolated document parser slots are busy; retry later.")
     context = multiprocessing.get_context("spawn")
     parent, child = context.Pipe(duplex=False)
-    process = context.Process(target=_parser_worker, args=(child, data, normalized_suffix), daemon=True)
+    # The parent owns the scratch directory: a sandboxed worker may write inside
+    # it but cannot remove it, so cleanup has to happen outside the boundary.
+    temp_root = TemporaryDirectory(prefix="pii-airlock-parser-")
+    process = context.Process(
+        target=_parser_worker,
+        args=(child, data, normalized_suffix, temp_root.name),
+        daemon=True,
+    )
     try:
         process.start()
         child.close()
@@ -204,21 +211,23 @@ def _extract_isolated(data: bytes, normalized_suffix: str) -> ExtractedDocument:
         if process.is_alive():
             process.terminate()
             process.join(timeout=2)
+        temp_root.cleanup()
         _PARSER_SLOTS.release()
 
 
-def _parser_worker(connection, data: bytes, normalized_suffix: str) -> None:
+def _parser_worker(connection, data: bytes, normalized_suffix: str, temp_root: str) -> None:
     try:
-        with TemporaryDirectory(prefix="pii-airlock-parser-") as temp_dir:
-            _apply_resource_limits()
-            isolation = _apply_parser_sandbox(Path(temp_dir))
-            extracted = _extract_binary_in_process(data, normalized_suffix, parser_isolation=isolation)
-            connection.send(
-                (
-                    "ok",
-                    {"text": extracted.text, "manifest": extracted.manifest.public_dict()},
-                )
+        work_dir = Path(temp_root) / "work"
+        work_dir.mkdir(parents=True, exist_ok=True)
+        _apply_resource_limits()
+        isolation = _apply_parser_sandbox(work_dir, Path(temp_root))
+        extracted = _extract_binary_in_process(data, normalized_suffix, parser_isolation=isolation)
+        connection.send(
+            (
+                "ok",
+                {"text": extracted.text, "manifest": extracted.manifest.public_dict()},
             )
+        )
     except AirlockError as exc:
         connection.send(("error", (str(exc), getattr(exc, "code", "airlock_error"))))
     except BaseException as exc:
@@ -256,12 +265,13 @@ def _apply_resource_limits() -> None:
         return
 
 
-def _apply_parser_sandbox(temp_dir: Path) -> str:
+def _apply_parser_sandbox(temp_dir: Path, writable_root: Path | None = None) -> str:
     """Remove ambient credentials and deny parser network/process activity.
 
     On macOS the worker also enters an OS sandbox. Other platforms retain the
     spawned-process and resource boundary and report that limitation explicitly.
     """
+    writable_root = writable_root or temp_dir
     os.chdir(temp_dir)
     os.umask(0o077)
     os.environ.clear()
@@ -273,7 +283,7 @@ def _apply_parser_sandbox(temp_dir: Path) -> str:
             raise PermissionError("Parser sandbox denied network or process execution.")
 
     sys.addaudithook(deny_ambient_capabilities)
-    if sys.platform == "darwin" and _apply_macos_sandbox(temp_dir):
+    if sys.platform == "darwin" and _apply_macos_sandbox(writable_root):
         return "macos_sandbox+spawn+resource_limits+python_audit"
     _apply_linux_no_new_privs()
     return "spawn+resource_limits+python_audit;os_sandbox_unavailable"
@@ -351,9 +361,16 @@ def _validate_docx_archive(data: bytes) -> None:
             }
             for name in names:
                 lowered = name.casefold()
-                if not lowered.startswith("word/") or not lowered.endswith(".xml"):
+                if not lowered.endswith((".xml", ".rels")):
                     continue
                 content = archive.read(name)
+                # A DOCX part never needs a DTD; refusing one keeps entity
+                # expansion and external-entity fetches out of the parser.
+                probe = content[:4096].lstrip()
+                if b"<!DOCTYPE" in probe or b"<!ENTITY" in content:
+                    raise AirlockError("DOCX declares an XML document type or entity, which is rejected.")
+                if not lowered.startswith("word/") or not lowered.endswith(".xml"):
+                    continue
                 for marker, feature in xml_markers.items():
                     if marker in content:
                         unsupported.add(feature)

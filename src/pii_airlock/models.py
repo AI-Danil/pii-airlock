@@ -86,6 +86,9 @@ class Operation:
     detector_warnings: list[str] = field(default_factory=list)
     review_revision: int = 0
     review_channel: str = "not_recorded"
+    authorized_revision: int | None = None
+    authorization_channel: str = "not_recorded"
+    acknowledged_warnings: bool = False
 
     def outbound_content(self) -> dict[str, str]:
         return {
@@ -123,6 +126,8 @@ class Operation:
             "security_warnings": list(self.security_warnings),
             "detector_warnings": list(self.detector_warnings),
             "review_revision": self.review_revision,
+            "authorized_revision": self.authorized_revision,
+            "authorization_channel": self.authorization_channel,
             "expires_in_seconds": max(0.0, round(self.expires_at - time.monotonic(), 3)),
         }
 

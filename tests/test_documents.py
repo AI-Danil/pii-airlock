@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import multiprocessing
+import tempfile
 from io import BytesIO
+from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -69,6 +71,48 @@ def test_docx_archive_expansion_is_bounded() -> None:
         archive.writestr("word/document.xml", "x" * (25 * 1024 * 1024 + 1))
     with pytest.raises(AirlockError, match="expanded size"):
         extract_bytes(buffer.getvalue(), ".docx")
+
+
+def test_docx_xml_document_type_and_entities_are_rejected() -> None:
+    billion_laughs = BytesIO()
+    with ZipFile(billion_laughs, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "types")
+        archive.writestr(
+            "word/document.xml",
+            '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]><w:document>&lol;</w:document>',
+        )
+    with pytest.raises(AirlockError, match="document type or entity"):
+        extract_bytes(billion_laughs.getvalue(), ".docx")
+
+    external_entity = BytesIO()
+    with ZipFile(external_entity, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", '<!ENTITY xxe SYSTEM "file:///etc/passwd">')
+        archive.writestr("word/document.xml", "<w:document/>")
+    with pytest.raises(AirlockError, match="document type or entity"):
+        extract_bytes(external_entity.getvalue(), ".docx")
+
+
+def test_parser_scratch_directory_does_not_survive_the_isolated_run() -> None:
+    doc = Document()
+    doc.add_paragraph("Alice Carter")
+    buffer = BytesIO()
+    doc.save(buffer)
+    scratch_root = Path(tempfile.gettempdir())
+    before = set(scratch_root.glob("pii-airlock-parser-*"))
+    assert extract_bytes(buffer.getvalue(), ".docx").strip() == "Alice Carter"
+    assert set(scratch_root.glob("pii-airlock-parser-*")) == before
+
+
+def test_isolated_parser_reports_the_specific_rejection_reason() -> None:
+    writer = PdfWriter()
+    for _ in range(101):
+        writer.add_blank_page(width=200, height=200)
+    buffer = BytesIO()
+    writer.write(buffer)
+    with pytest.raises(AirlockError) as caught:
+        extract_bytes(buffer.getvalue(), ".pdf")
+    # The sandbox must not swallow the reason and report a generic failure.
+    assert "isolation boundary" not in str(caught.value)
 
 
 def test_pdf_page_count_is_bounded() -> None:

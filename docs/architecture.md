@@ -37,7 +37,7 @@ stateDiagram-v2
     RejectedRetry --> [*]
 ```
 
-`READY_FOR_REVIEW` is deliberately not named `SAFE_TO_SEND`: the detector can omit sensitive values. The Web UI exposes exact outbound content and requires an explicit review action. The stateless API route blocks prompt-like text but cannot provide human review; its caller still needs an external acceptance policy.
+`READY_FOR_REVIEW` is deliberately not named `SAFE_TO_SEND`: the detector can omit sensitive values. It is also not a permission to send. Completion requires a second, separate state, `AUTHORIZED`, recorded by `POST /api/v1/operations/{id}/authorize` against the exact revision the reviewer saw; a later span edit clears it, and prompt-injection warnings additionally require an explicit acknowledgement. The stateless API route blocks prompt-like text but cannot provide human review; its caller still needs an external acceptance policy.
 
 ## Failure handling
 

@@ -48,6 +48,13 @@ def test_health_and_cookie_authenticated_dry_run_operation() -> None:
         assert payload["redactions"][0]["field"] == "text"
         assert "value" not in payload["redactions"][0]
         assert payload["token_mode"] == "opaque"
+        authorized = client.post(
+            f"/api/v1/operations/{payload['operation_id']}/authorize",
+            json={"review_revision": payload["review_revision"]},
+            headers=ORIGIN_HEADERS,
+        )
+        assert authorized.status_code == 200
+        assert authorized.json()["status"] == "AUTHORIZED"
         completion = client.post(
             f"/api/v1/operations/{payload['operation_id']}/complete",
             headers=ORIGIN_HEADERS,
@@ -90,6 +97,42 @@ def test_remote_client_and_non_loopback_host_are_rejected() -> None:
     app = _app()
     with _client(app) as bad_port:
         assert bad_port.get("/api/v1/health", headers={"Host": "127.0.0.1:notaport"}).status_code == 403
+
+
+def test_localhost_host_header_is_accepted_alongside_the_ip_literal() -> None:
+    with _client(_app()) as client:
+        assert client.get("/api/v1/health", headers={"Host": "localhost:8787"}).status_code == 200
+        assert client.get("/api/v1/health", headers={"Host": "localhost"}).status_code == 200
+        assert client.get("/api/v1/health", headers={"Host": "user@localhost:8787"}).status_code == 403
+        assert client.get("/api/v1/health", headers={"Host": "localhost.attacker.test"}).status_code == 403
+
+
+def test_unauthorized_completion_is_refused_without_consuming_the_operation() -> None:
+    with _client(_app()) as client:
+        client.get("/")
+        created = client.post("/api/v1/operations", json=_operation_payload(), headers=ORIGIN_HEADERS).json()
+        operation_id = created["operation_id"]
+        refused = client.post(f"/api/v1/operations/{operation_id}/complete", headers=ORIGIN_HEADERS)
+        assert refused.status_code == 422
+        assert "authorization" in refused.json()["detail"]["message"]
+
+        stale = client.post(
+            f"/api/v1/operations/{operation_id}/authorize",
+            json={"review_revision": created["review_revision"] + 1},
+            headers=ORIGIN_HEADERS,
+        )
+        assert stale.status_code == 422
+
+        authorized = client.post(
+            f"/api/v1/operations/{operation_id}/authorize",
+            json={"review_revision": created["review_revision"]},
+            headers=ORIGIN_HEADERS,
+        )
+        assert authorized.status_code == 200
+        assert authorized.json()["authorization_channel"] == "browser_session"
+        completed = client.post(f"/api/v1/operations/{operation_id}/complete", headers=ORIGIN_HEADERS)
+        assert completed.status_code == 200
+        assert completed.json()["cloud_status"] == "DRY_RUN"
 
 
 def test_session_writes_require_cookie_and_exact_origin() -> None:
