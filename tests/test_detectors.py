@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from pii_airlock import detectors
-from pii_airlock.detectors import HybridDetector, LMStudioDetector, RuleDetector
-from pii_airlock.models import DetectionError, EntityType
+from pii_airlock.detectors import ENSEMBLE_MODEL, LOCAL_MODELS, HybridDetector, LMStudioDetector, RuleDetector
+from pii_airlock.models import DetectionError, Entity, EntityType
 
 
 def test_rule_detector_does_not_treat_iso_date_as_phone() -> None:
@@ -34,16 +34,22 @@ def test_context_disambiguates_passport_and_tax_id() -> None:
 @pytest.mark.parametrize(
     "base_url",
     [
-        "http://localhost:1234/v1",
         "https://127.0.0.1:1234/v1",
         "http://user@127.0.0.1:1234/v1",
         "http://127.0.0.1:1234/not-v1",
         "http://127.0.0.1:1234/v1?debug=true",
+        "http://localhost.attacker.test:1234/v1",
+        "http://192.168.1.10:1234/v1",
     ],
 )
-def test_lm_studio_endpoint_is_literal_loopback_v1(base_url: str) -> None:
+def test_lm_studio_endpoint_is_loopback_v1(base_url: str) -> None:
     with pytest.raises(ValueError):
         LMStudioDetector(base_url=base_url)
+
+
+@pytest.mark.parametrize("base_url", ["http://127.0.0.1:1234/v1", "http://localhost:1234/v1", "http://[::1]:1234/v1"])
+def test_lm_studio_endpoint_accepts_every_loopback_spelling(base_url: str) -> None:
+    assert LMStudioDetector(base_url=base_url).base_url == base_url
 
 
 def test_lm_studio_timeout_must_be_positive() -> None:
@@ -93,6 +99,56 @@ def test_rule_detector_normalizes_obfuscation_but_returns_exact_source_span(
 ) -> None:
     entities = {(item.value, item.type) for item in RuleDetector().detect(text)}
     assert (expected, entity_type) in entities
+
+
+class _PerModelSemantic:
+    """Each model finds a different value, and some models fail outright."""
+
+    def __init__(self, by_model: dict[str, list[Entity]], failing: set[str] | None = None) -> None:
+        self.by_model = by_model
+        self.failing = failing or set()
+
+    def detect(self, text: str, *, model: str):
+        if model in self.failing:
+            raise DetectionError("not exact", code="non_exact_substring")
+        return list(self.by_model.get(model, []))
+
+
+def test_ensemble_keeps_what_either_model_found() -> None:
+    qwen, gemma = LOCAL_MODELS
+    semantic = _PerModelSemantic(
+        {
+            qwen: [Entity("Elena Morozova", EntityType.PERSON)],
+            gemma: [Entity("Northern Star", EntityType.ORG)],
+        }
+    )
+    outcome = HybridDetector(semantic).detect_outcome(
+        "Elena Morozova at Northern Star, alice@example.test",
+        model=ENSEMBLE_MODEL,
+    )
+    found = {(item.value, item.type) for item in outcome.entities}
+    assert ("Elena Morozova", EntityType.PERSON) in found
+    assert ("Northern Star", EntityType.ORG) in found
+    assert ("alice@example.test", EntityType.EMAIL) in found
+    assert outcome.warnings == ()
+    assert outcome.requires_manual_review is False
+
+
+def test_ensemble_survives_one_failing_model_but_says_so() -> None:
+    qwen, gemma = LOCAL_MODELS
+    semantic = _PerModelSemantic({gemma: [Entity("Northern Star", EntityType.ORG)]}, failing={qwen})
+    outcome = HybridDetector(semantic).detect_outcome("Northern Star", model=ENSEMBLE_MODEL)
+    assert ("Northern Star", EntityType.ORG) in {(item.value, item.type) for item in outcome.entities}
+    assert outcome.warnings == ("semantic_detector_qwen3.5-9b_non_exact_substring",)
+    assert outcome.requires_manual_review is False
+
+
+def test_ensemble_requires_review_when_every_model_fails() -> None:
+    semantic = _PerModelSemantic({}, failing=set(LOCAL_MODELS))
+    outcome = HybridDetector(semantic).detect_outcome("Email alice@example.test", model=ENSEMBLE_MODEL)
+    assert [(item.value, item.type) for item in outcome.entities] == [("alice@example.test", EntityType.EMAIL)]
+    assert len(outcome.warnings) == len(LOCAL_MODELS)
+    assert outcome.requires_manual_review is True
 
 
 def test_hybrid_preserves_rule_spans_but_requires_review_when_semantic_detector_fails() -> None:

@@ -30,14 +30,20 @@ def test_cloud_endpoint_requires_https_except_for_loopback() -> None:
 @pytest.mark.parametrize(
     "base_url",
     [
-        "http://localhost:9999/v1",
         "http://user@127.0.0.1:9999/v1",
         "https://api.openai.com/v1?debug=true",
+        "http://localhost.attacker.test:9999/v1",
+        "http://10.0.0.5:9999/v1",
     ],
 )
 def test_cloud_endpoint_rejects_ambiguous_or_credentialed_urls(base_url: str) -> None:
     with pytest.raises(ValueError):
         OpenAIResponsesClient(api_key="test", model="test", base_url=base_url)
+
+
+def test_cloud_test_endpoint_accepts_localhost_by_name() -> None:
+    client = OpenAIResponsesClient(api_key="test", model="test", base_url="http://localhost:9999/v1")
+    assert client.base_url == "http://localhost:9999/v1"
 
 
 def test_cloud_configuration_requires_nonempty_values_and_positive_timeout() -> None:

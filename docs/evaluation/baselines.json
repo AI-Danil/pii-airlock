@@ -1,0 +1,152 @@
+{
+  "generated_from": "fixtures/synthetic_cases.jsonl",
+  "dataset_cases": 52,
+  "scope": "Synthetic fixtures only. Scoring matches the published benchmark: exact value and type. Configurations differ only in the detector; the deterministic gate and review flow are identical.",
+  "elapsed_seconds": 153.4,
+  "configurations": {
+    "rules_only": {
+      "expected_values": 72,
+      "found_values": 40,
+      "predicted_values": 46,
+      "recall": 0.5556,
+      "precision": 0.8696,
+      "documents_with_entities": 46,
+      "documents_fully_covered": 20,
+      "values_left_for_the_person": 32,
+      "per_type_recall": {
+        "ADDRESS": 0.0,
+        "API_KEY": 1.0,
+        "CARD": 1.0,
+        "CONTRACT_ID": 1.0,
+        "EMAIL": 1.0,
+        "ORG": 0.0,
+        "OTHER_SECRET": 1.0,
+        "PASSPORT": 0.0,
+        "PERSON": 0.0,
+        "PHONE": 1.0,
+        "TAX_ID": 0.3333
+      },
+      "per_type_expected": {
+        "ADDRESS": 6,
+        "API_KEY": 6,
+        "CARD": 4,
+        "CONTRACT_ID": 7,
+        "EMAIL": 12,
+        "ORG": 6,
+        "OTHER_SECRET": 2,
+        "PASSPORT": 2,
+        "PERSON": 16,
+        "PHONE": 8,
+        "TAX_ID": 3
+      }
+    },
+    "rules_plus_qwen": {
+      "expected_values": 72,
+      "found_values": 61,
+      "predicted_values": 74,
+      "recall": 0.8472,
+      "precision": 0.8243,
+      "documents_with_entities": 46,
+      "documents_fully_covered": 36,
+      "values_left_for_the_person": 11,
+      "per_type_recall": {
+        "ADDRESS": 0.6667,
+        "API_KEY": 1.0,
+        "CARD": 1.0,
+        "CONTRACT_ID": 0.8571,
+        "EMAIL": 1.0,
+        "ORG": 0.5,
+        "OTHER_SECRET": 0.5,
+        "PASSPORT": 1.0,
+        "PERSON": 0.75,
+        "PHONE": 1.0,
+        "TAX_ID": 1.0
+      },
+      "per_type_expected": {
+        "ADDRESS": 6,
+        "API_KEY": 6,
+        "CARD": 4,
+        "CONTRACT_ID": 7,
+        "EMAIL": 12,
+        "ORG": 6,
+        "OTHER_SECRET": 2,
+        "PASSPORT": 2,
+        "PERSON": 16,
+        "PHONE": 8,
+        "TAX_ID": 3
+      }
+    },
+    "rules_plus_gemma": {
+      "expected_values": 72,
+      "found_values": 58,
+      "predicted_values": 64,
+      "recall": 0.8056,
+      "precision": 0.9062,
+      "documents_with_entities": 46,
+      "documents_fully_covered": 33,
+      "values_left_for_the_person": 14,
+      "per_type_recall": {
+        "ADDRESS": 1.0,
+        "API_KEY": 1.0,
+        "CARD": 1.0,
+        "CONTRACT_ID": 1.0,
+        "EMAIL": 1.0,
+        "ORG": 0.5,
+        "OTHER_SECRET": 1.0,
+        "PASSPORT": 1.0,
+        "PERSON": 0.4375,
+        "PHONE": 1.0,
+        "TAX_ID": 0.3333
+      },
+      "per_type_expected": {
+        "ADDRESS": 6,
+        "API_KEY": 6,
+        "CARD": 4,
+        "CONTRACT_ID": 7,
+        "EMAIL": 12,
+        "ORG": 6,
+        "OTHER_SECRET": 2,
+        "PASSPORT": 2,
+        "PERSON": 16,
+        "PHONE": 8,
+        "TAX_ID": 3
+      }
+    },
+    "rules_plus_both_models": {
+      "expected_values": 72,
+      "found_values": 66,
+      "predicted_values": 82,
+      "recall": 0.9167,
+      "precision": 0.8049,
+      "documents_with_entities": 46,
+      "documents_fully_covered": 40,
+      "values_left_for_the_person": 6,
+      "per_type_recall": {
+        "ADDRESS": 1.0,
+        "API_KEY": 1.0,
+        "CARD": 1.0,
+        "CONTRACT_ID": 1.0,
+        "EMAIL": 1.0,
+        "ORG": 0.6667,
+        "OTHER_SECRET": 1.0,
+        "PASSPORT": 1.0,
+        "PERSON": 0.75,
+        "PHONE": 1.0,
+        "TAX_ID": 1.0
+      },
+      "per_type_expected": {
+        "ADDRESS": 6,
+        "API_KEY": 6,
+        "CARD": 4,
+        "CONTRACT_ID": 7,
+        "EMAIL": 12,
+        "ORG": 6,
+        "OTHER_SECRET": 2,
+        "PASSPORT": 2,
+        "PERSON": 16,
+        "PHONE": 8,
+        "TAX_ID": 3
+      }
+    }
+  }
+}

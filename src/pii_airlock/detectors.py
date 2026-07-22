@@ -4,14 +4,18 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass
-from ipaddress import ip_address
 from typing import Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
 from .models import DetectionError, Entity, EntityType
+from .net import is_loopback_host
 
-SUPPORTED_MODELS = ("qwen/qwen3.5-9b", "google/gemma-4-e4b")
+LOCAL_MODELS = ("qwen/qwen3.5-9b", "google/gemma-4-e4b")
+# Both local models in one pass. They miss different entity types, so the union
+# finds more than either alone; the extra false positives only over-redact.
+ENSEMBLE_MODEL = "ensemble/both-local-models"
+SUPPORTED_MODELS = (*LOCAL_MODELS, ENSEMBLE_MODEL)
 MAX_LM_STUDIO_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
@@ -145,13 +149,9 @@ class LMStudioDetector:
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.base_url)
-        try:
-            is_loopback = bool(parsed.hostname and ip_address(parsed.hostname).is_loopback)
-        except ValueError:
-            is_loopback = False
         if (
             parsed.scheme != "http"
-            or not is_loopback
+            or not is_loopback_host(parsed.hostname)
             or parsed.username is not None
             or parsed.password is not None
             or parsed.path.rstrip("/") != "/v1"
@@ -164,7 +164,7 @@ class LMStudioDetector:
             raise ValueError("LM Studio timeout must be positive.")
 
     def detect(self, text: str, *, model: str) -> list[Entity]:
-        if model not in SUPPORTED_MODELS:
+        if model not in LOCAL_MODELS:
             raise DetectionError(f"Unsupported local model: {model}", code="unsupported_model")
         payload = {
             "model": model,
@@ -242,13 +242,23 @@ class HybridDetector:
 
     def detect(self, text: str, *, model: str) -> list[Entity]:
         rule_entities = self.rules.detect(text)
-        semantic_entities = self.semantic.detect(text, model=model)
+        if model == ENSEMBLE_MODEL:
+            semantic_entities, _warnings = self._semantic_union(text)
+        else:
+            semantic_entities = list(self.semantic.detect(text, model=model))
         return _deduplicate([*semantic_entities, *rule_entities])
 
     def detect_outcome(self, text: str, *, model: str) -> DetectionOutcome:
         rule_entities = self.rules.detect(text)
+        if model == ENSEMBLE_MODEL:
+            semantic_entities, warnings = self._semantic_union(text)
+            if len(warnings) == len(LOCAL_MODELS):
+                return DetectionOutcome(tuple(rule_entities), warnings, requires_manual_review=True)
+            # One model failing is not fatal here: the other still contributed,
+            # and the warning keeps that visible to the reviewer.
+            return DetectionOutcome(tuple(_deduplicate([*semantic_entities, *rule_entities])), warnings)
         try:
-            semantic_entities = self.semantic.detect(text, model=model)
+            semantic_entities = list(self.semantic.detect(text, model=model))
         except DetectionError as exc:
             return DetectionOutcome(
                 entities=tuple(rule_entities),
@@ -256,6 +266,17 @@ class HybridDetector:
                 requires_manual_review=True,
             )
         return DetectionOutcome(tuple(_deduplicate([*semantic_entities, *rule_entities])))
+
+    def _semantic_union(self, text: str) -> tuple[list[Entity], tuple[str, ...]]:
+        """Run every local model and keep everything any of them found."""
+        found: list[Entity] = []
+        warnings: list[str] = []
+        for model in LOCAL_MODELS:
+            try:
+                found.extend(self.semantic.detect(text, model=model))
+            except DetectionError as exc:
+                warnings.append(f"semantic_detector_{model.split('/')[-1]}_{exc.code}")
+        return _deduplicate(found), tuple(warnings)
 
 
 def _post_json(url: str, payload: dict[str, object], timeout: float) -> dict[str, object]:

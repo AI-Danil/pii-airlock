@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from .detectors import SUPPORTED_MODELS
 from .documents import MAX_BYTES, extract_bytes_with_manifest
 from .models import AirlockError, OperationNotFound, ServiceBusyError, StoreCapacityError, TokenMode
+from .net import is_loopback_host
 from .service import AirlockService
 
 LOGGER = logging.getLogger("pii_airlock.audit")
@@ -393,10 +394,7 @@ def _valid_loopback_host(host_header: str) -> bool:
             return False
         if port is not None and not 0 < port <= 65_535:
             return False
-        if parsed.hostname == "localhost":
-            # The one name allowed: it cannot be repointed by DNS rebinding.
-            return True
-        return ipaddress.ip_address(parsed.hostname).is_loopback
+        return is_loopback_host(parsed.hostname)
     except ValueError:
         return False
 

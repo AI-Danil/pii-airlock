@@ -250,6 +250,7 @@ pre {
   position: sticky;
   bottom: 12px;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   margin-top: 18px;
@@ -261,9 +262,10 @@ pre {
 
 .acknowledge {
   display: flex;
-  gap: 7px;
+  order: -1;
+  flex-basis: 100%;
+  gap: 8px;
   align-items: center;
-  max-width: 230px;
   color: var(--warning, #f0b429);
   font-size: 13px;
   line-height: 1.35;

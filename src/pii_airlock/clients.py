@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from ipaddress import ip_address
 from typing import Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
 from .models import AirlockError
+from .net import is_loopback_host
 
 MAX_PROVIDER_RESPONSE_BYTES = 2 * 1024 * 1024
 
@@ -25,11 +25,7 @@ class OpenAIResponsesClient:
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.base_url)
-        try:
-            is_loopback = bool(parsed.hostname and ip_address(parsed.hostname).is_loopback)
-        except ValueError:
-            is_loopback = False
-        is_loopback_http = parsed.scheme == "http" and is_loopback
+        is_loopback_http = parsed.scheme == "http" and is_loopback_host(parsed.hostname)
         if (
             (parsed.scheme != "https" and not is_loopback_http)
             or not parsed.hostname
