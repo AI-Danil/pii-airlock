@@ -8,13 +8,13 @@ from pathlib import Path
 
 from .api import create_app
 from .benchmark import run_benchmark
-from .detectors import SUPPORTED_MODELS, HybridDetector, LMStudioDetector
+from .detectors import ENSEMBLE_MODEL, LOCAL_MODELS, HybridDetector, LMStudioDetector
 from .documents import extract_path
 from .models import AirlockError, TokenMode
 from .receipts import ReceiptSigner
 from .service import AirlockService
 
-ALIASES = {"qwen": SUPPORTED_MODELS[0], "gemma": SUPPORTED_MODELS[1]}
+ALIASES = {"qwen": LOCAL_MODELS[0], "gemma": LOCAL_MODELS[1], "both": ENSEMBLE_MODEL}
 
 
 def build_parser() -> argparse.ArgumentParser:

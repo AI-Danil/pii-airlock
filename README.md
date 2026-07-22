@@ -120,6 +120,19 @@ Qwen produced 11 non-exact model proposals. The hybrid detector now preserves de
 
 See the [comparison note](docs/evaluation/model-comparison.md) and [machine-readable run](docs/evaluation/live-combined.json).
 
+### What the local model adds, and what two of them add
+
+`scripts/measure_baselines.py` scores the same 52 fixtures with the detector swapped, using the benchmark's own rule (exact value and type):
+
+| Configuration | Recall | Values left for the person | Documents fully covered |
+|---|---:|---:|---:|
+| Rules only, no model | 0.5556 | 32 / 72 | 20 / 46 |
+| Rules + Qwen 3.5 9B | 0.8472 | 11 / 72 | 36 / 46 |
+| Rules + Gemma 4 E4B | 0.8056 | 14 / 72 | 33 / 46 |
+| Rules + both models | 0.9167 | 6 / 72 | 40 / 46 |
+
+Rules alone find no name, address, organisation or passport in this set at all — those types are exactly what the local model is there for. The two models fail on different types, so their union finds more than either alone, at the cost of a few more false positives. For a privacy gate that is the right trade: an extra replacement costs a slightly clumsier answer, a miss costs a leak. The union is available as the `ensemble/both-local-models` detector (`--model both`, and the first option in the UI); it runs both models, so it is roughly twice as slow. These four rows measure detection only: the gate, oracle and latency columns of the published run were not re-measured for the union, because alternating two models per document makes LM Studio swap weights and the timing would describe the swap rather than the detector.
+
 The repository also contains a detached 52-item blind-review bundle and a pre-registered scoring protocol. It excludes fixture labels and original case IDs. No independent reviewer has completed it, so the human-review result is honestly `not_collected`; fixture-assisted projections are not presented as human evidence.
 
 ## Security limits
@@ -139,6 +152,6 @@ python scripts/scan_secrets.py
 pip-audit --disable-pip --no-deps -r requirements.lock
 ```
 
-The offline suite currently contains 96 tests, including property-based token checks and random binary parser rejection. Clean hash-locked installs and the suite passed locally on Python 3.11 and 3.12. GitHub Actions repeats the checks with stubs. Separate workflows audit locked runtime dependencies, generate a CycloneDX SBOM, and attest tagged release artifacts. LM Studio and provider credentials are not used in CI.
+The offline suite currently contains 114 tests, including property-based token checks and random binary parser rejection. Clean hash-locked installs and the suite passed locally on Python 3.11 and 3.12. GitHub Actions repeats the checks with stubs. Separate workflows audit locked runtime dependencies, generate a CycloneDX SBOM, and attest tagged release artifacts. LM Studio and provider credentials are not used in CI.
 
 MIT License.
